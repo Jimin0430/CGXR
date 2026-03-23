@@ -1,0 +1,14 @@
+# Large binary / model files
+models/
+
+# Images (too large for GitHub)
+SfM/input/
+SfM/images/
+tandt_db/tandt/train/images/
+tandt_db/tandt/truck/images/
+
+# COLMAP intermediate DB
+SfM/distorted/database.db
+
+# macOS
+.DS_Store
