@@ -13,6 +13,7 @@ SfM/distorted/database.db
 
 # 학습 결과물
 output*/
+!output_my_video/
 temp_gs/
 35k
 40k

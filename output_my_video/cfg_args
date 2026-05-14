@@ -1,0 +1,1 @@
+Namespace(data_device='cuda', depths='', eval=True, images='images', model_path='D:\\JM\\cgxr\\CGXR\\output_my_video', resolution=-1, sh_degree=3, source_path='D:\\JM\\cgxr\\CGXR\\data\\my_video', train_test_exp=False, white_background=False)
