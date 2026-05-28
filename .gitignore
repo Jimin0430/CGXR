@@ -14,6 +14,8 @@ SfM/distorted/database.db
 # 학습 결과물
 output*/
 !output_my_video/
+!output_my_video_masked/
+output_my_video_masked/chkpnt*.pth
 temp_gs/
 35k
 40k
