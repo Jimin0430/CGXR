@@ -1,0 +1,8 @@
+#G: 166453
+Position: 998733
+Scale: 351418.0
+Rotation: 368871.0
+Appearance: 623086.0
+MLPs: 211208.0
+Total: 2553316.0
+Actual storage: 1.99 MB

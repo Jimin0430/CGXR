@@ -12,13 +12,24 @@ SfM/distorted/database.db
 .DS_Store
 
 # 학습 결과물
-output*/
+output/
+output_*/
 !output_my_video/
 !output_my_video_masked/
 output_my_video_masked/chkpnt*.pth
+!output/mobile_gs_lego/
+output/mobile_gs_lego/chkpnt*.pth
 temp_gs/
 35k
 40k
+
+# 환경 / 설치파일
+sam2_env/
+hotdog/
+.claude/
+nerf_synthetic2.zip
+vc_redist.x64.exe
+test_numpy.bat
 
 # 데이터셋 & 영상 (학습 인풋 포함)
 data/

@@ -1,6 +1,0 @@
-# ninja log v5
-0	11619	7961463011140780	D:/JM/cgxr/CGXR/Optimize/submodules/diff-gaussian-rasterization/build/temp.win-amd64-cpython-37/Release/ext.obj	98c14755123ac8f9
-15	31624	7961463210861470	D:/JM/cgxr/CGXR/Optimize/submodules/diff-gaussian-rasterization/build/temp.win-amd64-cpython-37/Release/rasterize_points.obj	a7c3c26ba768e8af
-13	4983	7961467690614075	D:/JM/cgxr/CGXR/Optimize/submodules/diff-gaussian-rasterization/build/temp.win-amd64-cpython-37/Release/cuda_rasterizer/forward.obj	8398cd462d9531fb
-18	5080	7961467691589871	D:/JM/cgxr/CGXR/Optimize/submodules/diff-gaussian-rasterization/build/temp.win-amd64-cpython-37/Release/cuda_rasterizer/backward.obj	12498bd5a1f503f2
-22	9248	7961467733243647	D:/JM/cgxr/CGXR/Optimize/submodules/diff-gaussian-rasterization/build/temp.win-amd64-cpython-37/Release/cuda_rasterizer/rasterizer_impl.obj	74e2a6840a3cbfe7

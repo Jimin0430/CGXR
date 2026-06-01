@@ -1,22 +1,43 @@
 @echo off
-SET ENV=C:\Users\USER\anaconda3\envs\gaussian_splatting
-SET "PATH=%ENV%;%ENV%\Library\mingw-w64\bin;%ENV%\Library\usr\bin;%ENV%\Library\bin;%ENV%\Scripts;C:\Users\USER\anaconda3\Scripts;%PATH%"
+SET ANACONDA=C:\Users\USER\anaconda3
+SET ENV=%ANACONDA%\envs\mobile-gs
+SET "PATH=%ENV%;%ENV%\Library\mingw-w64\bin;%ENV%\Library\usr\bin;%ENV%\Library\bin;%ENV%\Scripts;%ANACONDA%\Scripts;%PATH%"
 
-echo [STEP 1] 3DGS Training on lego dataset (min_opacity=0.01)...
-cd /d "D:\JM\cgxr\CGXR\Optimize"
+SET SOURCE=D:\JM\cgxr\CGXR\data\lego
+SET OUTPUT=D:\JM\cgxr\CGXR\output
+SET MOBILE_GS=D:\JM\cgxr\CGXR\mobile_gs
 
-"%ENV%\python.exe" train.py ^
-  -s "D:\JM\cgxr\CGXR\data\lego" ^
-  -m "D:\JM\cgxr\CGXR\output_opacity01" ^
+cd /d "%MOBILE_GS%"
+
+echo [STEP 1] Mobile-GS Pretrain (Mini-Splatting, 30000 iters)...
+"%ENV%\python.exe" pretrain.py ^
+  -s "%SOURCE%" ^
+  -m "%OUTPUT%" ^
   --eval ^
+  --imp_metric outdoor ^
+  --sh_degree 3 ^
+  --iterations 30000 ^
   --white_background ^
-  --min_opacity 0.01 ^
-  --save_iterations 7000 30000 ^
-  --checkpoint_iterations 30000 ^
-  --disable_viewer
+  --save_iterations 30000 ^
+  --checkpoint_iterations 30000
 
 IF %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Training failed with code %ERRORLEVEL%.
+    echo [ERROR] Pretrain failed with code %ERRORLEVEL%.
+    exit /b 1
+)
+echo [OK] Pretrain complete.
+
+echo.
+echo [STEP 2] Mobile-GS Fine-tuning (KD + SVQ)...
+"%ENV%\python.exe" train.py ^
+  -s "%SOURCE%" ^
+  -m "%OUTPUT%" ^
+  --eval ^
+  --white_background ^
+  --start_checkpoint "%OUTPUT%\chkpnt30000.pth"
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Fine-tuning failed with code %ERRORLEVEL%.
     exit /b 1
 )
 echo [DONE] Training complete.

@@ -13,7 +13,7 @@ CALL "%ANACONDA%\Scripts\activate.bat" "%ANACONDA%"
 
 REM ---- Paths (edit SOURCE to change dataset) ----------------
 SET SOURCE=D:\JM\cgxr\CGXR\data\lego
-SET OPTIMIZE_DIR=D:\JM\cgxr\CGXR\Optimize
+SET MOBILE_GS_DIR=D:\JM\cgxr\CGXR\mobile_gs
 SET LG_DIR=D:\JM\cgxr\CGXR\LightGaussian\repo
 SET BASE_OUTPUT=D:\JM\cgxr\CGXR\output
 SET LG_OUTPUT=D:\JM\cgxr\CGXR\output_lightgaussian
@@ -29,26 +29,46 @@ SET STAGE3_OUTPUT=%LG_OUTPUT%\stage3_quantized
 REM -----------------------------------------------------------
 echo.
 echo ============================================================
-echo  STEP 1: 3DGS Training  (30 000 iterations)
+echo  STEP 1a: Mobile-GS Pretrain / Mini-Splatting (30 000 iters)
 echo  Source: %SOURCE%
 echo ============================================================
-CALL conda activate gaussian_splatting
-cd /d "%OPTIMIZE_DIR%"
+CALL conda activate mobile-gs
+cd /d "%MOBILE_GS_DIR%"
 mkdir "%BASE_OUTPUT%" 2>nul
 
-python train.py ^
+python pretrain.py ^
   -s "%SOURCE%" ^
   -m "%BASE_OUTPUT%" ^
   --eval ^
-  --save_iterations 7000 30000 ^
+  --imp_metric outdoor ^
+  --sh_degree 3 ^
+  --iterations 30000 ^
+  --save_iterations 30000 ^
   --checkpoint_iterations 30000 ^
   --white_background
 
 IF %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] 3DGS training failed. Aborting.
+    echo [ERROR] Pretrain failed. Aborting.
     pause & exit /b 1
 )
-echo [OK] Training complete.
+echo [OK] Pretrain complete.
+
+echo.
+echo ============================================================
+echo  STEP 1b: Mobile-GS Fine-tuning (KD + SVQ)
+echo ============================================================
+python train.py ^
+  -s "%SOURCE%" ^
+  -m "%BASE_OUTPUT%" ^
+  --eval ^
+  --white_background ^
+  --start_checkpoint "%TRAIN_CKPT%"
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Fine-tuning failed. Aborting.
+    pause & exit /b 1
+)
+echo [OK] Fine-tuning complete.
 
 REM -----------------------------------------------------------
 echo.
