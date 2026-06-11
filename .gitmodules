@@ -1,0 +1,3 @@
+[submodule "LightGaussian/repo"]
+	path = LightGaussian/repo
+	url = https://github.com/Jimin0430/LightGaussian.git
