@@ -15,8 +15,8 @@ SAM2_CKPT     = BASE / "sam2.1_hiera_large.pt"
 SAM2_CFG      = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
 ANACONDA      = Path(os.getenv("CONDA_ROOT", r"C:\Users\USER\anaconda3"))
-MOBILE_GS_PY  = ANACONDA / "envs" / "mobile-gs"  / "python.exe"
-LG_PY         = ANACONDA / "envs" / "lightgaussian" / "python.exe"
+MOBILE_GS_PY  = ANACONDA / "envs" / "mobile-gs"  / "Scripts" / "python.exe"
+LG_PY         = ANACONDA / "envs" / "lightgaussian" / "Scripts" / "python.exe"
 
 # 서버 내부 경로
 SERVER_DIR    = BASE / "server"
