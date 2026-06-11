@@ -23,6 +23,13 @@ output/mobile_gs_lego/point_cloud/*
 !output/mobile_gs_lego/point_cloud/iteration_60000/
 output/mobile_gs_lego/point_cloud/iteration_60000/*
 !output/mobile_gs_lego/point_cloud/iteration_60000/point_cloud.ply
+!output/ship_3dgs/
+output/ship_3dgs/*
+!output/ship_3dgs/point_cloud/
+output/ship_3dgs/point_cloud/*
+!output/ship_3dgs/point_cloud/iteration_30000/
+output/ship_3dgs/point_cloud/iteration_30000/*
+!output/ship_3dgs/point_cloud/iteration_30000/point_cloud.ply
 output_my_video_masked/chkpnt*.pth
 temp_gs/
 35k
