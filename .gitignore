@@ -43,6 +43,10 @@ nerf_synthetic2.zip
 vc_redist.x64.exe
 test_numpy.bat
 
+# SAM2 모델 가중치 (대용량 바이너리)
+sam2*.pt
+sam2*.pth
+
 # 데이터셋 & 영상 (학습 인풋 포함)
 data/
 SfM/images/
@@ -65,6 +69,7 @@ colmap_out.txt
 colmap_help.txt
 
 # 로그
+logs/
 pipeline_log.txt
 train_log*.txt
 stage*.txt
@@ -73,6 +78,11 @@ numpy_fix_log.txt
 setup_lg_log.txt
 recompile*.log
 recompile*.bat
+
+# Python 빌드 아티팩트
+3dgsTrain/submodules/*/build/
+3dgsTrain/submodules/*/*.egg-info/
+3dgsTrain/submodules/*/dist/
 
 # Python 캐시
 __pycache__/
