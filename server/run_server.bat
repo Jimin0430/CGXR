@@ -7,4 +7,5 @@ SET CGXR_API_KEY=changeme
 SET CGXR_BASE=D:\JM\cgxr\CGXR
 
 cd /d "%~dp0"
-"%ENV%\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+if not exist logs mkdir logs
+"%ENV%\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-config log_config.json
