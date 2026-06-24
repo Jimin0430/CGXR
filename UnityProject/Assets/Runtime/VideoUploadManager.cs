@@ -444,7 +444,8 @@ namespace GaussianSplatting
                 case "finetune":    return 0.65f;
                 case "pruning":     return 0.75f;
                 case "distilling":  return 0.85f;
-                case "quantizing":  return 0.95f;
+                case "quantizing":  return 0.90f;
+                case "converting":  return 0.97f;
                 case "done":        return 1.0f;
                 case "failed":      return 0f;
                 default:            return 0f;

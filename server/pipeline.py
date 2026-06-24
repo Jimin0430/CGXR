@@ -2,7 +2,7 @@
 각 학습 단계를 subprocess로 실행하고 job 상태를 업데이트한다.
 모든 단계는 순차 실행 — 실패하면 즉시 중단.
 """
-import subprocess
+import subprocess, sys
 from pathlib import Path
 
 import jobs as job_store
@@ -148,8 +148,25 @@ def run_pipeline(job_id: str, video_path: Path):
         if not final_ply.exists():
             final_ply = stage2_ply  # fallback
 
-        job_store.update_job(job_id, status="done", result_ply=str(final_ply))
-        job_store.append_log(job_id, f"Pipeline complete. PLY: {final_ply}")
+        # ── [8] PLY → .unitygs 변환 ──────────────────────────────────
+        job_store.update_job(job_id, status="converting")
+        unitygs_dir = workdir / "unity_bytes"
+        unitygs_dir.mkdir(exist_ok=True)
+        unitygs_path = unitygs_dir / "splat.unitygs"
+        _run(job_id, [
+            sys.executable,
+            cfg.BASE / "convert_ply_to_unitygs.py",
+            final_ply,
+            unitygs_path,
+        ], cwd=cfg.BASE, label="PLY → .unitygs")
+
+        job_store.update_job(
+            job_id,
+            status="done",
+            result_ply=str(final_ply),
+            result_unitygs=str(unitygs_path),
+        )
+        job_store.append_log(job_id, f"Pipeline complete. PLY: {final_ply}, unitygs: {unitygs_path}")
 
     except Exception as e:
         job_store.update_job(job_id, status="failed", error=str(e))

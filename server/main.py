@@ -1,11 +1,12 @@
 """
 CGXR Training Server
-POST /upload                      → 영상 업로드, job_id 반환
-GET  /status/{job_id}             → 학습 진행 상태
-GET  /download/{job_id}           → 변환된 .bytes 파일 목록 (JSON)
-GET  /download/{job_id}/{filename} → 개별 .bytes / .json 파일 다운로드
-GET  /jobs                        → 전체 잡 목록
-DELETE /jobs/{job_id}             → 잡 삭제
+POST /upload                        → 영상 업로드, job_id 반환
+GET  /status/{job_id}               → 학습 진행 상태
+GET  /download/{job_id}?format=unity → splat.unitygs 바이너리 단일 파일 반환 (모바일용)
+GET  /download/{job_id}             → 파일 크기/경로 JSON (하위 호환)
+GET  /download/{job_id}/splat.unitygs → 파일 직접 다운로드
+GET  /jobs                          → 전체 잡 목록
+DELETE /jobs/{job_id}               → 잡 삭제
 """
 import shutil
 from pathlib import Path
@@ -82,10 +83,13 @@ def get_status(job_id: str, _: str = Depends(require_api_key)):
     }
 
 
-# ── .bytes 파일 목록 ──────────────────────────────────────────────────────────
+# ── .unitygs 단일 파일 다운로드 (모바일 클라이언트용) ─────────────────────────
 @app.get("/download/{job_id}")
-def list_bytes_files(job_id: str, _: str = Depends(require_api_key)):
-    """변환 완료된 .bytes / _meta.json 파일 목록과 크기를 반환한다."""
+def download_asset(job_id: str, format: str = None, _: str = Depends(require_api_key)):
+    """
+    ?format=unity  →  splat.unitygs 바이너리 단일 파일 반환 (모바일 앱용)
+    (파라미터 없음)  →  result_unitygs 경로 JSON 반환 (하위 호환)
+    """
     job = job_store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -95,47 +99,44 @@ def list_bytes_files(job_id: str, _: str = Depends(require_api_key)):
             detail=f"Not ready yet. Current status: {job['status']}",
         )
 
-    bytes_dir = Path(job.get("result_bytes", ""))
-    if not bytes_dir.exists():
-        raise HTTPException(status_code=500, detail="Converted bytes not found on server")
+    unitygs_path = Path(job.get("result_unitygs", ""))
+    if not unitygs_path.exists():
+        raise HTTPException(status_code=500, detail="splat.unitygs not found on server")
 
-    files = [
-        {"filename": f.name, "size": f.stat().st_size}
-        for f in sorted(bytes_dir.iterdir())
-        if f.suffix in {".bytes", ".json"}
-    ]
-    if not files:
-        raise HTTPException(status_code=500, detail="No .bytes files found")
+    if format == "unity":
+        return FileResponse(
+            path=str(unitygs_path),
+            media_type="application/octet-stream",
+            filename="splat.unitygs",
+        )
 
-    return {"job_id": job_id, "files": files}
+    # 기본: 경로 정보 JSON 반환
+    return {
+        "job_id": job_id,
+        "filename": "splat.unitygs",
+        "size": unitygs_path.stat().st_size,
+    }
 
 
-# ── 개별 파일 다운로드 ────────────────────────────────────────────────────────
-@app.get("/download/{job_id}/{filename}")
-def download_bytes_file(job_id: str, filename: str, _: str = Depends(require_api_key)):
-    """_pos.bytes, _col.bytes, _meta.json 등 개별 파일을 다운로드한다."""
+# ── splat.unitygs 직접 다운로드 (파일명 경로) ────────────────────────────────
+@app.get("/download/{job_id}/splat.unitygs")
+def download_unitygs_direct(job_id: str, _: str = Depends(require_api_key)):
+    """splat.unitygs 파일을 직접 다운로드한다."""
     job = job_store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job["status"] != "done":
-        raise HTTPException(
-            status_code=425,
-            detail=f"Not ready yet. Current status: {job['status']}",
-        )
+        raise HTTPException(status_code=425, detail=f"Not ready yet: {job['status']}")
 
-    bytes_dir = Path(job.get("result_bytes", ""))
-    file_path = bytes_dir / filename
+    unitygs_path = Path(job.get("result_unitygs", ""))
+    if not unitygs_path.exists():
+        raise HTTPException(status_code=500, detail="splat.unitygs not found")
 
-    # 경로 탈출 방지
-    if not file_path.resolve().is_relative_to(bytes_dir.resolve()):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"{filename} not found")
-    if file_path.suffix not in {".bytes", ".json"}:
-        raise HTTPException(status_code=400, detail="Only .bytes and .json files are served")
-
-    media_type = "application/json" if file_path.suffix == ".json" else "application/octet-stream"
-    return FileResponse(path=str(file_path), media_type=media_type, filename=filename)
+    return FileResponse(
+        path=str(unitygs_path),
+        media_type="application/octet-stream",
+        filename="splat.unitygs",
+    )
 
 
 # ── 잡 목록 ──────────────────────────────────────────────────────────────────
