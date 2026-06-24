@@ -1,0 +1,108 @@
+<svg width="780" height="500" xmlns="http://www.w3.org/2000/svg"
+  font-family="'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif">
+
+  <text x="390" y="28" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">
+    .unitygs 이진 파일 포맷 (N = 22,935 splats 기준)
+  </text>
+
+  <!-- Helpers -->
+  <defs>
+    <marker id="arr3" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#555"/>
+    </marker>
+  </defs>
+
+  <!-- Column headers -->
+  <text x="55"  y="52" text-anchor="middle" font-size="11" fill="#888">오프셋</text>
+  <text x="185" y="52" text-anchor="middle" font-size="11" fill="#888">필드</text>
+  <text x="395" y="52" text-anchor="middle" font-size="11" fill="#888">값 / 설명</text>
+  <text x="600" y="52" text-anchor="middle" font-size="11" fill="#888">크기</text>
+  <text x="710" y="52" text-anchor="middle" font-size="11" fill="#888">누적</text>
+
+  <!-- Row helper macro: y, color, offset, name, value, size, cumul -->
+
+  <!-- Header section -->
+  <rect x="10" y="60" width="760" height="120" rx="8" fill="#EBF3FB" stroke="#2874A6" stroke-width="1.8"/>
+  <text x="14" y="75" font-size="10" fill="#888">[ Header ]</text>
+
+  <!-- Magic -->
+  <line x1="10" y1="82" x2="770" y2="82" stroke="#2874A6" stroke-width="0.7" stroke-dasharray="3,2"/>
+  <text x="55"  y="97" text-anchor="middle" font-size="11" fill="#555">0x00</text>
+  <text x="185" y="97" text-anchor="middle" font-size="11" font-weight="bold" fill="#2874A6">Magic</text>
+  <text x="395" y="97" text-anchor="middle" font-size="11" fill="#444">0x41534755  ('UGSA')</text>
+  <text x="600" y="97" text-anchor="middle" font-size="11" fill="#666">4 B (uint32)</text>
+  <text x="710" y="97" text-anchor="middle" font-size="11" fill="#888">4 B</text>
+
+  <line x1="10" y1="104" x2="770" y2="104" stroke="#2874A6" stroke-width="0.7" stroke-dasharray="3,2"/>
+  <text x="55"  y="119" text-anchor="middle" font-size="11" fill="#555">0x04</text>
+  <text x="185" y="119" text-anchor="middle" font-size="11" font-weight="bold" fill="#2874A6">Version</text>
+  <text x="395" y="119" text-anchor="middle" font-size="11" fill="#444">1</text>
+  <text x="600" y="119" text-anchor="middle" font-size="11" fill="#666">4 B (uint32)</text>
+  <text x="710" y="119" text-anchor="middle" font-size="11" fill="#888">8 B</text>
+
+  <line x1="10" y1="126" x2="770" y2="126" stroke="#2874A6" stroke-width="0.7" stroke-dasharray="3,2"/>
+  <text x="55"  y="141" text-anchor="middle" font-size="11" fill="#555">0x08</text>
+  <text x="185" y="141" text-anchor="middle" font-size="11" font-weight="bold" fill="#2874A6">SplatCount (N)</text>
+  <text x="395" y="141" text-anchor="middle" font-size="11" fill="#444">22,935</text>
+  <text x="600" y="141" text-anchor="middle" font-size="11" fill="#666">4 B (uint32)</text>
+  <text x="710" y="141" text-anchor="middle" font-size="11" fill="#888">12 B</text>
+  <line x1="10" y1="148" x2="770" y2="148" stroke="#2874A6" stroke-width="0.7" stroke-dasharray="3,2"/>
+  <text x="55"  y="163" text-anchor="middle" font-size="11" fill="#555">0x0C</text>
+  <text x="185" y="163" text-anchor="middle" font-size="11" font-weight="bold" fill="#2874A6">hasSH</text>
+  <text x="395" y="163" text-anchor="middle" font-size="11" fill="#444">true (degree ≥ 1인 경우)</text>
+  <text x="600" y="163" text-anchor="middle" font-size="11" fill="#666">1 B (bool)</text>
+  <text x="710" y="163" text-anchor="middle" font-size="11" fill="#888">13 B</text>
+
+  <!-- Positions -->
+  <rect x="10" y="186" width="760" height="40" rx="6" fill="#FADBD8" stroke="#C0392B" stroke-width="1.8"/>
+  <text x="55"  y="211" text-anchor="middle" font-size="11" fill="#555">0x0D</text>
+  <text x="185" y="211" text-anchor="middle" font-size="11" font-weight="bold" fill="#C0392B">Positions</text>
+  <text x="395" y="211" text-anchor="middle" font-size="11" fill="#444">N × (x, y, z)  float32  —  선형 좌표</text>
+  <text x="600" y="211" text-anchor="middle" font-size="11" fill="#666">N×12 B = 267 KB</text>
+  <text x="710" y="211" text-anchor="middle" font-size="11" fill="#888">~281 KB</text>
+
+  <!-- Scales -->
+  <rect x="10" y="230" width="760" height="40" rx="6" fill="#FDEBD0" stroke="#E67E22" stroke-width="1.8"/>
+  <text x="55"  y="255" text-anchor="middle" font-size="11" fill="#555">+N×12</text>
+  <text x="185" y="255" text-anchor="middle" font-size="11" font-weight="bold" fill="#E67E22">Scales</text>
+  <text x="395" y="255" text-anchor="middle" font-size="11" fill="#444">N × (sx, sy, sz)  float32  —  PLY log-scale에서 exp() 변환</text>
+  <text x="600" y="255" text-anchor="middle" font-size="11" fill="#666">N×12 B = 267 KB</text>
+  <text x="710" y="255" text-anchor="middle" font-size="11" fill="#888">~548 KB</text>
+
+  <!-- Rotations -->
+  <rect x="10" y="274" width="760" height="40" rx="6" fill="#FDEDEC" stroke="#E74C3C" stroke-width="1.8"/>
+  <text x="55"  y="299" text-anchor="middle" font-size="11" fill="#555">+N×12</text>
+  <text x="185" y="299" text-anchor="middle" font-size="11" font-weight="bold" fill="#E74C3C">Rotations</text>
+  <text x="395" y="299" text-anchor="middle" font-size="11" fill="#444">N × (x,y,z,w)  float32  —  정규화 사원수</text>
+  <text x="600" y="299" text-anchor="middle" font-size="11" fill="#666">N×16 B = 356 KB</text>
+  <text x="710" y="299" text-anchor="middle" font-size="11" fill="#888">~904 KB</text>
+
+  <!-- Colors -->
+  <rect x="10" y="318" width="760" height="40" rx="6" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.8"/>
+  <text x="55"  y="343" text-anchor="middle" font-size="11" fill="#555">+N×16</text>
+  <text x="185" y="343" text-anchor="middle" font-size="11" font-weight="bold" fill="#1E8449">Colors</text>
+  <text x="395" y="343" text-anchor="middle" font-size="11" fill="#444">N × (R,G,B,A)  float32  —  sigmoid(f_dc), sigmoid(opacity)</text>
+  <text x="600" y="343" text-anchor="middle" font-size="11" fill="#666">N×16 B = 356 KB</text>
+  <text x="710" y="343" text-anchor="middle" font-size="11" fill="#888">~1.27 MB</text>
+
+  <!-- SH Coefficients: highlighted -->
+  <rect x="10" y="362" width="760" height="56" rx="6" fill="#F4ECF7" stroke="#7D3C98" stroke-width="2.2"/>
+  <text x="14" y="376" font-size="10" fill="#7D3C98">[ SH — 핵심 기여 ]</text>
+  <text x="55"  y="394" text-anchor="middle" font-size="11" fill="#555">+N×16</text>
+  <text x="185" y="389" text-anchor="middle" font-size="11" font-weight="bold" fill="#7D3C98">SH Coefficients</text>
+  <text x="185" y="407" text-anchor="middle" font-size="10" fill="#9B59B6">(SHTableItemFloat32)</text>
+  <text x="395" y="389" text-anchor="middle" font-size="11" fill="#444">N × 48 floats  —  degree-2: 8×float3 + 7×zero-pad + 1×pad</text>
+  <text x="395" y="407" text-anchor="middle" font-size="10" fill="#777">PLY 채널별 → 계수별 인터리브 재배열 (그림 2 참조)</text>
+  <text x="600" y="398" text-anchor="middle" font-size="11" fill="#7D3C98">N×192 B = 4.2 MB</text>
+  <text x="710" y="398" text-anchor="middle" font-size="11" fill="#7D3C98">~5.47 MB</text>
+
+  <!-- Total -->
+  <rect x="10" y="422" width="760" height="32" rx="6" fill="#2C3E50" stroke="#2C3E50" stroke-width="1"/>
+  <text x="185" y="443" text-anchor="middle" font-size="12" font-weight="bold" fill="white">총 합계</text>
+  <text x="395" y="443" text-anchor="middle" font-size="11" fill="#ECF0F1">SH 포함 시 ≈ 5.5 MB  /  SH 제외 시 ≈ 1.3 MB  (hasSH=false)</text>
+  <text x="710" y="443" text-anchor="middle" font-size="12" font-weight="bold" fill="#E8F8F5">~5.5 MB</text>
+
+  <text x="390" y="488" text-anchor="middle" font-size="11" fill="#666">
+    그림 3. .unitygs 이진 파일 레이아웃 — 헤더 포함 6개 연속 버퍼, SH 계수가 전체 크기의 76% 차지
+  </text>
+</svg>

@@ -144,7 +144,11 @@ def run_pipeline(job_id: str, video_path: Path):
         ], cwd=cfg.LG_REPO_DIR, label="LG stage3 quantize")
 
         # ── 최종 PLY 위치 기록 ────────────────────────────────────────
-        final_ply = stage3_dir / "extreme_saving" / "point_cloud.ply"
+        # VecTree는 stage3_dir/point_cloud.ply 에 복원 PLY를 저장함
+        # extreme_saving/ 은 npz 압축 표현이며 PLY가 없음
+        final_ply = stage3_dir / "point_cloud.ply"
+        if not final_ply.exists():
+            final_ply = stage3_dir / "extreme_saving" / "point_cloud.ply"
         if not final_ply.exists():
             final_ply = stage2_ply  # fallback
 

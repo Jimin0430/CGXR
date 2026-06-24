@@ -1,0 +1,134 @@
+<svg width="1020" height="480" xmlns="http://www.w3.org/2000/svg"
+  font-family="'Malgun Gothic','Apple SD Gothic Neo',Arial,sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#555"/>
+    </marker>
+    <marker id="arr-b" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#2874A6"/>
+    </marker>
+    <marker id="arr-g" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#1E8449"/>
+    </marker>
+    <marker id="arr-o" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#CA6F1E"/>
+    </marker>
+  </defs>
+
+  <!-- ── 스마트폰 ── -->
+  <rect x="8" y="100" width="148" height="270" rx="12" fill="#EBF3FB" stroke="#2874A6" stroke-width="2.2"/>
+  <text x="82" y="134" text-anchor="middle" font-size="15" font-weight="bold" fill="#2874A6">스마트폰</text>
+  <line x1="25" y1="143" x2="139" y2="143" stroke="#2874A6" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="82" y="166" text-anchor="middle" font-size="12" fill="#444">영상 촬영</text>
+  <text x="82" y="188" text-anchor="middle" font-size="11" fill="#666">VideoUploadManager</text>
+  <text x="82" y="210" text-anchor="middle" font-size="11" fill="#666">상태 폴링 (2초 간격)</text>
+  <text x="82" y="232" text-anchor="middle" font-size="11" fill="#666">자산 다운로드</text>
+  <text x="82" y="260" text-anchor="middle" font-size="10" fill="#999">iPhone 13</text>
+  <text x="82" y="278" text-anchor="middle" font-size="10" fill="#999">iOS / Unity 2022</text>
+  <text x="82" y="296" text-anchor="middle" font-size="10" fill="#999">Wi-Fi / 5G</text>
+  <text x="82" y="344" text-anchor="middle" font-size="10" fill="#2874A6">※ 학습 중에도</text>
+  <text x="82" y="359" text-anchor="middle" font-size="10" fill="#2874A6">폴링 요청 처리됨</text>
+
+  <!-- Upload arrow -->
+  <line x1="158" y1="175" x2="218" y2="175" stroke="#2874A6" stroke-width="2" marker-end="url(#arr-b)"/>
+  <text x="188" y="167" text-anchor="middle" font-size="10" fill="#2874A6">HTTP POST</text>
+  <text x="188" y="188" text-anchor="middle" font-size="10" fill="#999">영상 (.mov)</text>
+
+  <!-- Status polling -->
+  <line x1="158" y1="248" x2="218" y2="248" stroke="#aaa" stroke-width="1.4" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <line x1="218" y1="262" x2="158" y2="262" stroke="#aaa" stroke-width="1.4" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <text x="188" y="244" text-anchor="middle" font-size="9" fill="#999">GET /status</text>
+  <text x="188" y="273" text-anchor="middle" font-size="9" fill="#999">JSON 응답</text>
+
+  <!-- ── 서버 ── -->
+  <rect x="222" y="18" width="566" height="442" rx="14" fill="#EAF7EF" stroke="#1E8449" stroke-width="2.2"/>
+  <text x="505" y="48" text-anchor="middle" font-size="15" font-weight="bold" fill="#1E8449">학습 서버 (FastAPI + BackgroundTasks)</text>
+  <line x1="242" y1="57" x2="768" y2="57" stroke="#1E8449" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Stage boxes (left column) -->
+  <rect x="248" y="66"  width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="83"  text-anchor="middle" font-size="11.5" fill="#145A32">[1] 프레임 추출 + COLMAP SfM</text>
+  <text x="368" y="95"  text-anchor="middle" font-size="10"   fill="#888">→ scene/sparse/</text>
+
+  <rect x="248" y="112" width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="129" text-anchor="middle" font-size="11.5" fill="#145A32">[2] SAM2 배경 제거</text>
+  <text x="368" y="141" text-anchor="middle" font-size="10"   fill="#888">→ images/ (마스크 적용 프레임)</text>
+
+  <rect x="248" y="158" width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="175" text-anchor="middle" font-size="11.5" fill="#145A32">[3] 3DGS 학습 (30,000 iter)</text>
+  <text x="368" y="187" text-anchor="middle" font-size="10"   fill="#888">→ PLY 67,455 splats / 16 MB</text>
+
+  <rect x="248" y="204" width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="221" text-anchor="middle" font-size="11.5" fill="#145A32">[4] LightGaussian Pruning 66%</text>
+  <text x="368" y="233" text-anchor="middle" font-size="10"   fill="#888">→ PLY 22,935 splats / 5.5 MB</text>
+
+  <rect x="248" y="250" width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="267" text-anchor="middle" font-size="11.5" fill="#145A32">[5] SH 증류 (degree 3 → 2)</text>
+  <text x="368" y="279" text-anchor="middle" font-size="10"   fill="#888">→ PLY 22,935 splats / 3.6 MB</text>
+
+  <rect x="248" y="296" width="240" height="34" rx="7" fill="#D5F5E3" stroke="#1E8449" stroke-width="1.2"/>
+  <text x="368" y="313" text-anchor="middle" font-size="11.5" fill="#145A32">[6] VecTree 벡터 양자화</text>
+  <text x="368" y="325" text-anchor="middle" font-size="10"   fill="#888">→ PLY 3.76 MB / npz 1.2 MB</text>
+
+  <!-- Stage 7: highlighted -->
+  <rect x="238" y="342" width="260" height="50" rx="7" fill="#A9DFBF" stroke="#117A65" stroke-width="2.2"/>
+  <text x="368" y="363" text-anchor="middle" font-size="12" font-weight="bold" fill="#117A65">[7] PLY → .unitygs 변환</text>
+  <text x="368" y="380" text-anchor="middle" font-size="10" fill="#1E8449">서버 사이드 · SH 채널 재배열 · 5.5 MB</text>
+
+  <!-- Stage down arrows -->
+  <line x1="368" y1="100" x2="368" y2="112" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="368" y1="146" x2="368" y2="158" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="368" y1="192" x2="368" y2="204" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="368" y1="238" x2="368" y2="250" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="368" y1="284" x2="368" y2="296" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+  <line x1="368" y1="330" x2="368" y2="342" stroke="#1E8449" stroke-width="1.5" marker-end="url(#arr-g)"/>
+
+  <!-- Right info panel -->
+  <rect x="510" y="66" width="258" height="330" rx="10" fill="#FDFFFE" stroke="#A9DFBF" stroke-width="1.5"/>
+  <text x="639" y="88" text-anchor="middle" font-size="12" font-weight="bold" fill="#117A65">기술 기여 포인트</text>
+  <line x1="522" y1="95" x2="756" y2="95" stroke="#A9DFBF" stroke-width="1"/>
+
+  <text x="524" y="115" font-size="11" fill="#444">● FastAPI BackgroundTasks</text>
+  <text x="530" y="130" font-size="10" fill="#777">학습 중에도 /status 폴링 처리</text>
+
+  <text x="524" y="155" font-size="11" fill="#444">● SAM2 배경 제거 (선택)</text>
+  <text x="530" y="170" font-size="10" fill="#777">비디오 전파 마스킹</text>
+
+  <text x="524" y="195" font-size="11" fill="#444">● 다중 conda 환경 연동</text>
+  <text x="530" y="210" font-size="10" fill="#777">mobile-gs / lightgaussian / sam2_env</text>
+
+  <text x="524" y="235" font-size="11" fill="#444">● SH degree 동적 감지</text>
+  <text x="530" y="250" font-size="10" fill="#777">degree2(24개) → 48 floats 패딩</text>
+
+  <text x="524" y="275" font-size="11" font-weight="bold" fill="#117A65">● 서버 사이드 자산 변환</text>
+  <text x="530" y="290" font-size="10" fill="#777">모바일 CPU 부하 제거</text>
+  <text x="530" y="305" font-size="10" fill="#777">SH 계수 손실 없이 보존</text>
+  <text x="530" y="320" font-size="10" fill="#777">Morton swizzle 색상 텍스처</text>
+  <text x="530" y="335" font-size="10" fill="#777">Smallest-Three 회전 인코딩</text>
+  <text x="530" y="350" font-size="10" fill="#777">ChunkData (per-256 bounds)</text>
+  <text x="530" y="370" font-size="10" fill="#999">단일 .unitygs 이진 파일 전송</text>
+
+  <!-- Download arrow -->
+  <line x1="790" y1="240" x2="856" y2="240" stroke="#CA6F1E" stroke-width="2.5" marker-end="url(#arr-o)"/>
+  <text x="823" y="232" text-anchor="middle" font-size="10" fill="#CA6F1E">HTTP GET</text>
+  <text x="823" y="252" text-anchor="middle" font-size="10" fill="#CA6F1E">.unitygs</text>
+  <text x="823" y="266" text-anchor="middle" font-size="9"  fill="#999">~5.5 MB</text>
+
+  <!-- ── Unity 모바일 ── -->
+  <rect x="860" y="100" width="152" height="280" rx="12" fill="#FEF9E7" stroke="#CA6F1E" stroke-width="2.2"/>
+  <text x="936" y="134" text-anchor="middle" font-size="15" font-weight="bold" fill="#CA6F1E">Unity 앱</text>
+  <line x1="876" y1="143" x2="996" y2="143" stroke="#CA6F1E" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="936" y="165" text-anchor="middle" font-size="11" fill="#555">BinaryLoader</text>
+  <text x="936" y="182" text-anchor="middle" font-size="10" fill="#888">스레드 분리 I/O</text>
+  <text x="936" y="206" text-anchor="middle" font-size="11" fill="#555">GaussianSplatAsset</text>
+  <text x="936" y="223" text-anchor="middle" font-size="10" fill="#888">TextAsset 런타임 조립</text>
+  <text x="936" y="247" text-anchor="middle" font-size="11" fill="#555">GaussianSplatRenderer</text>
+  <text x="936" y="264" text-anchor="middle" font-size="10" fill="#888">45 FPS / 22 ms</text>
+  <text x="936" y="288" text-anchor="middle" font-size="10" fill="#888">Thread group: 64</text>
+  <text x="936" y="304" text-anchor="middle" font-size="10" fill="#888">(정렬 비활성화)</text>
+  <text x="936" y="328" text-anchor="middle" font-size="10" fill="#CA6F1E">로딩 시간: 1.8 s</text>
+  <text x="936" y="346" text-anchor="middle" font-size="10" fill="#CA6F1E">메모리: 520 MB</text>
+
+  <!-- Caption -->
+  <text x="510" y="468" text-anchor="middle" font-size="11" fill="#666">그림 1. 전체 시스템 아키텍처 — 스마트폰 영상 촬영부터 모바일 실시간 렌더링까지</text>
+</svg>
