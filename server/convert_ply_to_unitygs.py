@@ -75,7 +75,7 @@ def convert(ply_path: str, out_path: str, include_sh: bool = True) -> None:
     # ── SH coefficients (bands 1-3, 15 × float3 per splat) ───────────────
     # PLY stores: f_rest_0..14 = band1-3 for R, f_rest_15..29 for G, f_rest_30..44 for B
     # SHTableItemFloat32 layout: sh1=(R,G,B), sh2=(R,G,B), ..., sh15=(R,G,B), pad=(0,0,0)
-    rest_names = sorted([k for k in v.dtype.names if k.startswith("f_rest_")],
+    rest_names = sorted([k for k in v.data.dtype.names if k.startswith("f_rest_")],
                         key=lambda s: int(s.split("_")[-1]))
     has_sh = include_sh and len(rest_names) >= 45
 
