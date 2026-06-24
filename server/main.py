@@ -1,10 +1,11 @@
 """
 CGXR Training Server
-POST /upload              → 영상 업로드, job_id 반환
-GET  /status/{job_id}     → 학습 진행 상태
-GET  /download/{job_id}   → 완료된 PLY 다운로드
-GET  /jobs                → 전체 잡 목록
-DELETE /jobs/{job_id}     → 잡 삭제
+POST /upload                      → 영상 업로드, job_id 반환
+GET  /status/{job_id}             → 학습 진행 상태
+GET  /download/{job_id}           → 변환된 .bytes 파일 목록 (JSON)
+GET  /download/{job_id}/{filename} → 개별 .bytes / .json 파일 다운로드
+GET  /jobs                        → 전체 잡 목록
+DELETE /jobs/{job_id}             → 잡 삭제
 """
 import shutil
 from pathlib import Path
@@ -81,27 +82,60 @@ def get_status(job_id: str, _: str = Depends(require_api_key)):
     }
 
 
-# ── PLY 다운로드 ──────────────────────────────────────────────────────────────
+# ── .bytes 파일 목록 ──────────────────────────────────────────────────────────
 @app.get("/download/{job_id}")
-def download_ply(job_id: str, _: str = Depends(require_api_key)):
+def list_bytes_files(job_id: str, _: str = Depends(require_api_key)):
+    """변환 완료된 .bytes / _meta.json 파일 목록과 크기를 반환한다."""
     job = job_store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job["status"] != "done":
         raise HTTPException(
             status_code=425,
-            detail=f"Training not complete yet. Current status: {job['status']}",
+            detail=f"Not ready yet. Current status: {job['status']}",
         )
 
-    ply_path = Path(job.get("result_ply", ""))
-    if not ply_path.exists():
-        raise HTTPException(status_code=500, detail="PLY file not found on server")
+    bytes_dir = Path(job.get("result_bytes", ""))
+    if not bytes_dir.exists():
+        raise HTTPException(status_code=500, detail="Converted bytes not found on server")
 
-    return FileResponse(
-        path=str(ply_path),
-        media_type="application/octet-stream",
-        filename=f"{job_id}.ply",
-    )
+    files = [
+        {"filename": f.name, "size": f.stat().st_size}
+        for f in sorted(bytes_dir.iterdir())
+        if f.suffix in {".bytes", ".json"}
+    ]
+    if not files:
+        raise HTTPException(status_code=500, detail="No .bytes files found")
+
+    return {"job_id": job_id, "files": files}
+
+
+# ── 개별 파일 다운로드 ────────────────────────────────────────────────────────
+@app.get("/download/{job_id}/{filename}")
+def download_bytes_file(job_id: str, filename: str, _: str = Depends(require_api_key)):
+    """_pos.bytes, _col.bytes, _meta.json 등 개별 파일을 다운로드한다."""
+    job = job_store.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] != "done":
+        raise HTTPException(
+            status_code=425,
+            detail=f"Not ready yet. Current status: {job['status']}",
+        )
+
+    bytes_dir = Path(job.get("result_bytes", ""))
+    file_path = bytes_dir / filename
+
+    # 경로 탈출 방지
+    if not file_path.resolve().is_relative_to(bytes_dir.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"{filename} not found")
+    if file_path.suffix not in {".bytes", ".json"}:
+        raise HTTPException(status_code=400, detail="Only .bytes and .json files are served")
+
+    media_type = "application/json" if file_path.suffix == ".json" else "application/octet-stream"
+    return FileResponse(path=str(file_path), media_type=media_type, filename=filename)
 
 
 # ── 잡 목록 ──────────────────────────────────────────────────────────────────

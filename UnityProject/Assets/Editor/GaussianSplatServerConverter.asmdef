@@ -1,0 +1,22 @@
+{
+    "name": "GaussianSplatServerConverter",
+    "rootNamespace": "GaussianSplatting.ServerConverter",
+    "references": [
+        "GaussianSplattingEditor",
+        "GaussianSplatting",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -3,7 +3,6 @@
 모든 단계는 순차 실행 — 실패하면 즉시 중단.
 """
 import subprocess
-import shutil
 from pathlib import Path
 
 import jobs as job_store
@@ -25,7 +24,7 @@ def _run(job_id: str, cmd: list, cwd: Path, label: str):
     )
 
     if result.stdout:
-        job_store.append_log(job_id, result.stdout[-3000:])  # 마지막 3000자
+        job_store.append_log(job_id, result.stdout[-3000:])
     if result.stderr:
         job_store.append_log(job_id, result.stderr[-2000:])
 
@@ -38,7 +37,7 @@ def _run(job_id: str, cmd: list, cwd: Path, label: str):
 def run_pipeline(job_id: str, video_path: Path):
     job = job_store.get_job(job_id)
     use_sam2 = job["use_sam2"]
-    workdir = Path(job["workdir"])  # server/workdir/<job_id>/
+    workdir = Path(job["workdir"])
     scene_dir = workdir / "scene"
     output_dir = workdir / "output"
     lg_out = workdir / "lg_output"
@@ -57,12 +56,11 @@ def run_pipeline(job_id: str, video_path: Path):
             "--video", video_path,
             "--every_n_frames", 10,
             "--colmap_executable", cfg.COLMAP_EXE,
-            "--sequential",
-        ], cwd=cfg.EXTRACT_SFM_DIR, label="video→frames")
+        ], cwd=cfg.EXTRACT_SFM_DIR, label="video→frames+COLMAP")
 
-        # ── [2] COLMAP 완료 확인 후 상태 업데이트 ────────────────────
+        # ── [2] COLMAP 완료 상태 업데이트 ────────────────────────────
         job_store.update_job(job_id, status="colmap")
-        job_store.append_log(job_id, "COLMAP already ran inside convert.py")
+        job_store.append_log(job_id, "COLMAP done inside convert.py")
 
         # ── [3] SAM2 배경 제거 (선택) ─────────────────────────────────
         if use_sam2 and cfg.SAM2_CKPT.exists():
@@ -79,34 +77,21 @@ def run_pipeline(job_id: str, video_path: Path):
         else:
             job_store.append_log(job_id, "SAM2 skipped")
 
-        # ── [4] Mobile-GS Pretrain ────────────────────────────────────
-        job_store.update_job(job_id, status="pretrain")
-        pretrain_ckpt = output_dir / f"chkpnt{cfg.PRETRAIN_ITERS}.pth"
+        # ── [4] 3DGS 학습 (30k iters) ────────────────────────────────
+        job_store.update_job(job_id, status="training")
+        gs_ckpt = output_dir / f"chkpnt{cfg.GS_TRAIN_ITERS}.pth"
         _run(job_id, [
-            cfg.MOBILE_GS_PY,
-            cfg.MOBILE_GS_DIR / "pretrain.py",
+            cfg.LG_PY,
+            cfg.GS_TRAIN_DIR / "train.py",
             "-s", scene_dir,
             "-m", output_dir,
             "--eval",
-            "--imp_metric", "outdoor",
-            "--sh_degree", 3,
-            "--iterations", cfg.PRETRAIN_ITERS,
-            "--save_iterations", cfg.PRETRAIN_ITERS,
-            "--checkpoint_iterations", cfg.PRETRAIN_ITERS,
-        ], cwd=cfg.MOBILE_GS_DIR, label="Mobile-GS pretrain")
+            "--iterations", cfg.GS_TRAIN_ITERS,
+            "--save_iterations", cfg.GS_TRAIN_ITERS,
+            "--checkpoint_iterations", cfg.GS_TRAIN_ITERS,
+        ], cwd=cfg.GS_TRAIN_DIR, label="3DGS train")
 
-        # ── [5] Mobile-GS Fine-tuning ─────────────────────────────────
-        job_store.update_job(job_id, status="finetune")
-        _run(job_id, [
-            cfg.MOBILE_GS_PY,
-            cfg.MOBILE_GS_DIR / "train.py",
-            "-s", scene_dir,
-            "-m", output_dir,
-            "--eval",
-            "--start_checkpoint", pretrain_ckpt,
-        ], cwd=cfg.MOBILE_GS_DIR, label="Mobile-GS fine-tune")
-
-        # ── [6] LightGaussian Stage 1: Prune + Finetune ───────────────
+        # ── [5] LightGaussian Stage 1: Prune + Finetune (35k iters) ──
         job_store.update_job(job_id, status="pruning")
         stage1_dir = lg_out / "stage1_pruned"
         stage1_dir.mkdir(exist_ok=True)
@@ -115,7 +100,7 @@ def run_pipeline(job_id: str, video_path: Path):
             cfg.LG_REPO_DIR / "prune_finetune.py",
             "-s", scene_dir,
             "-m", stage1_dir,
-            "--start_checkpoint", pretrain_ckpt,
+            "--start_checkpoint", gs_ckpt,
             "--iteration", cfg.LG_PRUNE_ITERS,
             "--prune_percent", cfg.LG_PRUNE_PERCENT,
             "--prune_type", "v_important_score",
@@ -124,7 +109,7 @@ def run_pipeline(job_id: str, video_path: Path):
             "--v_pow", 0.1,
         ], cwd=cfg.LG_REPO_DIR, label="LG stage1 prune")
 
-        # ── [7] LightGaussian Stage 2: SH Distillation ───────────────
+        # ── [6] LightGaussian Stage 2: SH Distillation (40k iters) ───
         job_store.update_job(job_id, status="distilling")
         stage2_dir = lg_out / "stage2_distilled"
         stage2_dir.mkdir(exist_ok=True)
@@ -136,14 +121,14 @@ def run_pipeline(job_id: str, video_path: Path):
             "-m", stage2_dir,
             "--start_checkpoint", stage1_ckpt,
             "--iteration", cfg.LG_DISTILL_ITERS,
-            "--teacher_model", pretrain_ckpt,
+            "--teacher_model", gs_ckpt,
             "--new_max_sh", 2,
             "--position_lr_max_steps", cfg.LG_DISTILL_ITERS,
             "--enable_covariance",
             "--augmented_view",
         ], cwd=cfg.LG_REPO_DIR, label="LG stage2 distill")
 
-        # ── [8] LightGaussian Stage 3: VecTree 압축 ──────────────────
+        # ── [7] LightGaussian Stage 3: VecTree 압축 ──────────────────
         job_store.update_job(job_id, status="quantizing")
         stage3_dir = lg_out / "stage3_quantized"
         stage3_dir.mkdir(exist_ok=True)
@@ -161,8 +146,7 @@ def run_pipeline(job_id: str, video_path: Path):
         # ── 최종 PLY 위치 기록 ────────────────────────────────────────
         final_ply = stage3_dir / "extreme_saving" / "point_cloud.ply"
         if not final_ply.exists():
-            # fallback: stage2 PLY 사용
-            final_ply = stage2_ply
+            final_ply = stage2_ply  # fallback
 
         job_store.update_job(job_id, status="done", result_ply=str(final_ply))
         job_store.append_log(job_id, f"Pipeline complete. PLY: {final_ply}")

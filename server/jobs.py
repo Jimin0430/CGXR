@@ -17,6 +17,7 @@ STAGES = [
     "pruning",      # LG stage 1
     "distilling",   # LG stage 2
     "quantizing",   # LG stage 3
+    "converting",   # Unity PLY → .bytes
     "done",
     "failed",
 ]
