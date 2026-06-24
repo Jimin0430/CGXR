@@ -7,14 +7,27 @@ using GaussianSplatting.Runtime;
 namespace GaussianSplatting
 {
     /// <summary>
-    /// Unity Gaussian Splat 바이너리 형식 (.unitygs) 런타임 로더.
-    /// 서버에서 받은 바이너리 파일을 직접 메모리에 로드하여 GaussianSplatRenderer에 전달.
+    /// .unitygs 바이너리 파일 로더.
+    /// 백그라운드 스레드에서 raw float 데이터만 읽고,
+    /// GaussianSplatAsset 조립과 렌더러 생성은 모두 메인 스레드에서 수행.
     /// </summary>
     public class UnityGSBinaryLoader : MonoBehaviour
     {
-        private const uint MAGIC   = 0x41534755; // 'UGSA'
+        private const uint MAGIC   = 0x41534755;
         private const int  VERSION = 1;
-        private const int  TEX_W   = 2048;       // GaussianSplatAsset.kTextureWidth
+        private const int  TEX_W   = 2048;
+
+        // 백그라운드 스레드에서 채운 raw 데이터 컨테이너 (Unity API 없음)
+        private class RawSplatData
+        {
+            public int        Count;
+            public float[]    Positions;   // N*3
+            public float[]    Scales;      // N*3
+            public float[]    Rotations;   // N*4 xyzw
+            public float[]    Colors;      // N*4 RGBA
+            public bool       HasSH;
+            public float[]    SHCoeffs;    // N*48 (null if !HasSH)
+        }
 
         // ── 공개 진입점 ──────────────────────────────────────────────────────────
 
@@ -29,192 +42,175 @@ namespace GaussianSplatting
 
             Debug.Log($"[UnityGSLoader] Loading: {binaryPath}");
 
-            GaussianSplatAsset asset = null;
-            Exception loadError     = null;
-
+            // ① 파일 I/O → 백그라운드 스레드 (Unity API 없음)
+            RawSplatData raw  = null;
+            Exception    err  = null;
             var task = System.Threading.Tasks.Task.Run(() =>
             {
-                try   { asset = ParseBinaryFile(binaryPath); }
-                catch (Exception ex) { loadError = ex; }
+                try   { raw = ReadRaw(binaryPath); }
+                catch (Exception ex) { err = ex; }
             });
+            while (!task.IsCompleted) yield return null;
 
-            while (!task.IsCompleted)
-                yield return null;
-
-            if (loadError != null)
+            if (err != null)
             {
-                Debug.LogError($"[UnityGSLoader] Parse failed: {loadError.Message}\n{loadError.StackTrace}");
+                Debug.LogError($"[UnityGSLoader] Read failed: {err.Message}\n{err.StackTrace}");
                 onComplete?.Invoke(null);
                 yield break;
             }
 
-            // GaussianSplatRenderer 생성 (메인 스레드)
-            GameObject splatObj = new GameObject("ServerGaussianSplat");
-            GaussianSplatRenderer renderer = splatObj.AddComponent<GaussianSplatRenderer>();
-            SetPrivateField(renderer, "m_Asset", asset);
+            // ② GaussianSplatAsset 조립 → 메인 스레드 (ScriptableObject, TextAsset)
+            GaussianSplatAsset asset;
+            try   { asset = BuildAsset(raw); }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[UnityGSLoader] BuildAsset failed: {ex.Message}\n{ex.StackTrace}");
+                onComplete?.Invoke(null);
+                yield break;
+            }
 
-            Debug.Log($"[UnityGSLoader] Loaded {asset.splatCount:N0} splats");
+            // ③ 렌더러 생성 → 비활성 상태로 먼저 만들고 asset 세팅 후 활성화
+            //    AddComponent 직후 OnEnable이 즉시 실행되므로 SetActive(false) 선행 필수
+            var splatObj = new GameObject("ServerGaussianSplat");
+            splatObj.SetActive(false);
+
+            var renderer = splatObj.AddComponent<GaussianSplatRenderer>();
+            SetField(renderer, "m_Asset", asset);   // OnEnable 전에 세팅
+
+            splatObj.SetActive(true);               // 여기서 OnEnable → 렌더러 초기화
+
+            Debug.Log($"[UnityGSLoader] Rendered {asset.splatCount:N0} splats");
             onComplete?.Invoke(renderer);
         }
 
-        // ── 파일 파싱 (백그라운드 스레드) ────────────────────────────────────────
+        // ── 1단계: 파일 파싱 (백그라운드 스레드, Unity API 사용 금지) ─────────────
 
-        private GaussianSplatAsset ParseBinaryFile(string path)
+        private static RawSplatData ReadRaw(string path)
         {
-            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            using (var fs     = new FileStream(path, FileMode.Open, FileAccess.Read))
             using (var reader = new BinaryReader(fs))
             {
                 uint magic = reader.ReadUInt32();
                 if (magic != MAGIC)
-                    throw new IOException($"Invalid magic: 0x{magic:X8}");
+                    throw new IOException($"Invalid magic: 0x{magic:X8}, expected 0x{MAGIC:X8}");
 
-                uint version = reader.ReadUInt32();
-                if (version != VERSION)
-                    throw new IOException($"Unsupported version: {version}");
+                uint ver = reader.ReadUInt32();
+                if (ver != VERSION)
+                    throw new IOException($"Unsupported version: {ver}");
 
                 int n = (int)reader.ReadUInt32();
-                Debug.Log($"[UnityGSLoader] splatCount={n}");
 
-                // Positions (float32 × N × 3)
-                var positions = new Vector3[n];
-                for (int i = 0; i < n; i++)
-                    positions[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                var raw = new RawSplatData { Count = n };
 
-                // Scales (float32 × N × 3)
-                var scales = new Vector3[n];
-                for (int i = 0; i < n; i++)
-                    scales[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                raw.Positions = ReadFloats(reader, n * 3);
+                raw.Scales    = ReadFloats(reader, n * 3);
+                raw.Rotations = ReadFloats(reader, n * 4);
+                raw.Colors    = ReadFloats(reader, n * 4);
 
-                // Rotations (float32 × N × 4, xyzw)
-                var rotations = new Quaternion[n];
-                for (int i = 0; i < n; i++)
-                    rotations[i] = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
-                                                  reader.ReadSingle(), reader.ReadSingle());
+                raw.HasSH = reader.ReadBoolean();
+                if (raw.HasSH)
+                    raw.SHCoeffs = ReadFloats(reader, n * 48);
 
-                // Colors (float32 × N × 4, RGBA)
-                var colors = new Color[n];
-                for (int i = 0; i < n; i++)
-                    colors[i] = new Color(reader.ReadSingle(), reader.ReadSingle(),
-                                          reader.ReadSingle(), reader.ReadSingle());
-
-                // SH coefficients (optional, float32 × N × 48)
-                bool hasSH = reader.ReadBoolean();
-                float[] shFlat = null;
-                if (hasSH)
-                {
-                    shFlat = new float[n * 48];
-                    for (int i = 0; i < shFlat.Length; i++)
-                        shFlat[i] = reader.ReadSingle();
-                }
-
-                return BuildAsset(n, positions, scales, rotations, colors, hasSH, shFlat);
+                return raw;
             }
         }
 
-        // ── GaussianSplatAsset 조립 ───────────────────────────────────────────
-
-        private static GaussianSplatAsset BuildAsset(
-            int n,
-            Vector3[]   positions,
-            Vector3[]   scales,
-            Quaternion[] rotations,
-            Color[]     colors,
-            bool        hasSH,
-            float[]     shFlat)
+        private static float[] ReadFloats(BinaryReader r, int count)
         {
-            // 전체 bounds
+            var buf   = new float[count];
+            var bytes = r.ReadBytes(count * 4);
+            Buffer.BlockCopy(bytes, 0, buf, 0, bytes.Length);
+            return buf;
+        }
+
+        // ── 2단계: GaussianSplatAsset 조립 (메인 스레드) ────────────────────────
+
+        private static GaussianSplatAsset BuildAsset(RawSplatData raw)
+        {
+            int n = raw.Count;
+
+            // 전체 bounds 계산
             var bMin = new Vector3(float.MaxValue,  float.MaxValue,  float.MaxValue);
             var bMax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
             for (int i = 0; i < n; i++)
             {
-                bMin = Vector3.Min(bMin, positions[i]);
-                bMax = Vector3.Max(bMax, positions[i]);
+                var p = new Vector3(raw.Positions[i*3], raw.Positions[i*3+1], raw.Positions[i*3+2]);
+                bMin = Vector3.Min(bMin, p);
+                bMax = Vector3.Max(bMax, p);
             }
 
-            // === 포지션 데이터 (VectorFormat.Float32 = 12 bytes/splat) ===
+            // === 포지션 데이터 (VectorFormat.Float32, 12 bytes/splat) ===
             byte[] posBytes = new byte[n * 12];
-            for (int i = 0; i < n; i++)
-            {
-                int off = i * 12;
-                WriteFloat(posBytes, off,     positions[i].x);
-                WriteFloat(posBytes, off + 4, positions[i].y);
-                WriteFloat(posBytes, off + 8, positions[i].z);
-            }
+            Buffer.BlockCopy(raw.Positions, 0, posBytes, 0, posBytes.Length);
 
             // === Other 데이터 (packed rotation 4B + scale Float32 12B = 16 bytes/splat) ===
             byte[] otherBytes = new byte[n * 16];
             for (int i = 0; i < n; i++)
             {
                 int off = i * 16;
-                WriteUInt(otherBytes, off,      PackRotation(rotations[i]));
-                WriteFloat(otherBytes, off + 4,  scales[i].x);
-                WriteFloat(otherBytes, off + 8,  scales[i].y);
-                WriteFloat(otherBytes, off + 12, scales[i].z);
+                var q = new Quaternion(raw.Rotations[i*4], raw.Rotations[i*4+1],
+                                       raw.Rotations[i*4+2], raw.Rotations[i*4+3]);
+                WriteUInt(otherBytes, off, PackRotation(q));
+                WriteFloat(otherBytes, off + 4,  raw.Scales[i*3]);
+                WriteFloat(otherBytes, off + 8,  raw.Scales[i*3+1]);
+                WriteFloat(otherBytes, off + 12, raw.Scales[i*3+2]);
             }
 
-            // === 컬러 데이터 (ColorFormat.Float32x4, Morton-swizzled texture) ===
-            int texH       = CalcTexHeight(n);
+            // === 컬러 텍스처 (ColorFormat.Float32x4, Morton-swizzled, 16 bytes/pixel) ===
+            int texH        = CalcTexHeight(n);
             int totalPixels = TEX_W * texH;
-            byte[] colorBytes = new byte[totalPixels * 16]; // 4 floats × 4 bytes
+            byte[] colorBytes = new byte[totalPixels * 16];
             for (int i = 0; i < n; i++)
             {
-                int mIdx = MortonIndex(i);
-                int off  = mIdx * 16;
-                WriteFloat(colorBytes, off,      colors[i].r);
-                WriteFloat(colorBytes, off + 4,  colors[i].g);
-                WriteFloat(colorBytes, off + 8,  colors[i].b);
-                WriteFloat(colorBytes, off + 12, colors[i].a);
+                int dst = MortonIndex(i) * 16;
+                int src = i * 4;
+                WriteFloat(colorBytes, dst,      raw.Colors[src]);
+                WriteFloat(colorBytes, dst + 4,  raw.Colors[src + 1]);
+                WriteFloat(colorBytes, dst + 8,  raw.Colors[src + 2]);
+                WriteFloat(colorBytes, dst + 12, raw.Colors[src + 3]);
             }
 
-            // === SH 데이터 (SHFormat.Float32 = SHTableItemFloat32, 192 bytes/splat) ===
-            // SHTableItemFloat32: sh1..sh15 (float3 each) + shPadding (float3) = 48 floats = 192 bytes
+            // === SH 데이터 (SHTableItemFloat32, 192 bytes/splat = 48 floats) ===
+            var shFmt = raw.HasSH ? GaussianSplatAsset.SHFormat.Float32
+                                   : GaussianSplatAsset.SHFormat.Norm6;
             byte[] shBytes;
-            var shFmt = GaussianSplatAsset.SHFormat.Float32;
-            if (hasSH && shFlat != null)
+            if (raw.HasSH)
             {
                 shBytes = new byte[n * 192];
-                Buffer.BlockCopy(shFlat, 0, shBytes, 0, shBytes.Length);
+                Buffer.BlockCopy(raw.SHCoeffs, 0, shBytes, 0, shBytes.Length);
             }
             else
             {
-                // 빈 SH: band0만 있으면 SHFormat.Norm6 + 최소 데이터
                 shBytes = new byte[0];
-                shFmt   = GaussianSplatAsset.SHFormat.Norm6;
             }
 
-            // === 청크 데이터 (per-256-splat bounds) ===
-            byte[] chunkBytes = BuildChunkData(n, positions, colors);
+            // === 청크 데이터 (per-256-splat position bounds) ===
+            byte[] chunkBytes = BuildChunkData(n, raw.Positions);
 
-            // === GaussianSplatAsset 생성 ===
+            // === GaussianSplatAsset 생성 (메인 스레드 전용) ===
             var asset = ScriptableObject.CreateInstance<GaussianSplatAsset>();
-            asset.Initialize(
-                n,
-                GaussianSplatAsset.VectorFormat.Float32,   // pos
-                GaussianSplatAsset.VectorFormat.Float32,   // scale
-                GaussianSplatAsset.ColorFormat.Float32x4,  // color
+            asset.Initialize(n,
+                GaussianSplatAsset.VectorFormat.Float32,
+                GaussianSplatAsset.VectorFormat.Float32,
+                GaussianSplatAsset.ColorFormat.Float32x4,
                 shFmt,
                 bMin, bMax,
                 cameras: null);
 
-            var chunkTA = new TextAsset(chunkBytes);
-            var posTA   = new TextAsset(posBytes);
-            var otherTA = new TextAsset(otherBytes);
-            var colorTA = new TextAsset(colorBytes);
-            var shTA    = new TextAsset(shBytes);
+            asset.SetAssetFiles(
+                new TextAsset(chunkBytes),
+                new TextAsset(posBytes),
+                new TextAsset(otherBytes),
+                new TextAsset(colorBytes),
+                new TextAsset(shBytes));
 
-            asset.SetAssetFiles(chunkTA, posTA, otherTA, colorTA, shTA);
             return asset;
         }
 
-        // ── 헬퍼: 청크 데이터 빌드 ───────────────────────────────────────────────
+        // ── 청크 데이터 (64 bytes/chunk) ─────────────────────────────────────────
 
-        private static byte[] BuildChunkData(int n, Vector3[] positions, Color[] colors)
+        private static byte[] BuildChunkData(int n, float[] positions)
         {
-            // ChunkInfo layout (64 bytes):
-            //   uint colR, colG, colB, colA  (16 bytes)
-            //   float2 posX, posY, posZ       (24 bytes)
-            //   uint sclX, sclY, sclZ         (12 bytes)
-            //   uint shR, shG, shB            (12 bytes)
             int chunkCount = (n + 255) / 256;
             byte[] data    = new byte[chunkCount * 64];
 
@@ -223,135 +219,101 @@ namespace GaussianSplatting
                 int start = c * 256;
                 int end   = Math.Min(start + 256, n);
 
-                // position min/max
-                var pMin = new Vector3(float.MaxValue,  float.MaxValue,  float.MaxValue);
-                var pMax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+                float minX = float.MaxValue,  minY = float.MaxValue,  minZ = float.MaxValue;
+                float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
                 for (int i = start; i < end; i++)
                 {
-                    pMin = Vector3.Min(pMin, positions[i]);
-                    pMax = Vector3.Max(pMax, positions[i]);
+                    float x = positions[i*3], y = positions[i*3+1], z = positions[i*3+2];
+                    if (x < minX) minX = x;  if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;  if (y > maxY) maxY = y;
+                    if (z < minZ) minZ = z;  if (z > maxZ) maxZ = z;
                 }
 
                 int off = c * 64;
-                // colR/G/B/A (uint, offset 0-15) — zero for Float32 format
-                // posX float2 at offset 16
-                WriteFloat(data, off + 16, pMin.x);
-                WriteFloat(data, off + 20, pMax.x);
-                // posY at offset 24
-                WriteFloat(data, off + 24, pMin.y);
-                WriteFloat(data, off + 28, pMax.y);
-                // posZ at offset 32
-                WriteFloat(data, off + 32, pMin.z);
-                WriteFloat(data, off + 36, pMax.z);
-                // sclX/Y/Z (uint, offset 40-51) — zero for Float32 scale
-                // shR/G/B  (uint, offset 52-63) — zero
+                // colR/G/B/A (offset 0-15) = 0 for Float32 format
+                WriteFloat(data, off + 16, minX);  WriteFloat(data, off + 20, maxX);
+                WriteFloat(data, off + 24, minY);  WriteFloat(data, off + 28, maxY);
+                WriteFloat(data, off + 32, minZ);  WriteFloat(data, off + 36, maxZ);
+                // sclX/Y/Z, shR/G/B (offset 40-63) = 0
             }
             return data;
         }
 
-        // ── 헬퍼: 회전 패킹 (Smallest-Three, 10-10-10-2 bits) ──────────────────
+        // ── 회전 패킹 (Smallest-Three, 10-10-10-2 bits) ──────────────────────────
 
         private static uint PackRotation(Quaternion q)
         {
-            // normalize
             float len = Mathf.Sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
             if (len > 1e-6f) { q.x /= len; q.y /= len; q.z /= len; q.w /= len; }
 
-            float[] comps = { q.x, q.y, q.z, q.w };
-
-            // find largest-magnitude component
+            float[] c = { q.x, q.y, q.z, q.w };
             int maxIdx = 0;
-            float maxAbs = Mathf.Abs(comps[0]);
             for (int i = 1; i < 4; i++)
-            {
-                float a = Mathf.Abs(comps[i]);
-                if (a > maxAbs) { maxAbs = a; maxIdx = i; }
-            }
+                if (Mathf.Abs(c[i]) > Mathf.Abs(c[maxIdx])) maxIdx = i;
 
-            // ensure positive sign for the largest component (so we can recover it)
-            float sign = comps[maxIdx] >= 0f ? 1f : -1f;
-
-            // encode the other three: range [-1/√2, +1/√2] → [0, 1023]
-            const float range = 0.70710678118f; // 1/√2
+            float sign = c[maxIdx] >= 0f ? 1f : -1f;
+            const float range = 0.70710678118f;
             uint[] enc = new uint[3];
             int j = 0;
             for (int i = 0; i < 4; i++)
             {
                 if (i == maxIdx) continue;
-                float v = comps[i] * sign;
-                enc[j++] = (uint)Mathf.Clamp(Mathf.RoundToInt((v / range + 1f) * 511.5f), 0, 1023);
+                enc[j++] = (uint)Mathf.Clamp(Mathf.RoundToInt((c[i]*sign / range + 1f) * 511.5f), 0, 1023);
             }
-
             return ((uint)maxIdx << 30) | (enc[0] << 20) | (enc[1] << 10) | enc[2];
         }
 
-        // ── 헬퍼: Morton 스위즐 인덱스 ─────────────────────────────────────────
+        // ── Morton 스위즐 ─────────────────────────────────────────────────────────
 
         private static int CalcTexHeight(int n)
         {
             int h = Math.Max(1, (n + TEX_W - 1) / TEX_W);
-            h = (h + 15) / 16 * 16; // round up to tile height
-            return h;
+            return (h + 15) / 16 * 16;
         }
 
-        private static int MortonIndex(int splatIdx)
+        private static int MortonIndex(int idx)
         {
-            int x      = splatIdx % TEX_W;
-            int y      = splatIdx / TEX_W;
-            int tileX  = x / 16;
-            int tileY  = y / 16;
-            int localX = x % 16;
-            int localY = y % 16;
-            int tilesPerRow = TEX_W / 16;
-            return (tileY * tilesPerRow + tileX) * 256 + Morton2D(localX, localY);
+            int x = idx % TEX_W, y = idx / TEX_W;
+            int tx = x / 16, ty = y / 16;
+            int lx = x % 16, ly = y % 16;
+            return (ty * (TEX_W / 16) + tx) * 256 + Morton2D(lx, ly);
         }
 
-        // 4-bit interleave (x at even bits, y at odd bits)
         private static int Morton2D(int x, int y)
         {
             x = (x | (x << 8)) & 0x00FF;
             x = (x | (x << 4)) & 0x0F0F;
             x = (x | (x << 2)) & 0x3333;
             x = (x | (x << 1)) & 0x5555;
-
             y = (y | (y << 8)) & 0x00FF;
             y = (y | (y << 4)) & 0x0F0F;
             y = (y | (y << 2)) & 0x3333;
             y = (y | (y << 1)) & 0x5555;
-
             return x | (y << 1);
         }
 
-        // ── 헬퍼: 바이트 쓰기 (little-endian) ──────────────────────────────────
+        // ── 바이트 쓰기 ───────────────────────────────────────────────────────────
 
         private static void WriteFloat(byte[] buf, int off, float v)
         {
-            byte[] b = BitConverter.GetBytes(v);
-            buf[off]     = b[0];
-            buf[off + 1] = b[1];
-            buf[off + 2] = b[2];
-            buf[off + 3] = b[3];
+            var b = BitConverter.GetBytes(v);
+            buf[off] = b[0]; buf[off+1] = b[1]; buf[off+2] = b[2]; buf[off+3] = b[3];
         }
 
         private static void WriteUInt(byte[] buf, int off, uint v)
         {
-            buf[off]     = (byte)(v);
-            buf[off + 1] = (byte)(v >> 8);
-            buf[off + 2] = (byte)(v >> 16);
-            buf[off + 3] = (byte)(v >> 24);
+            buf[off] = (byte)v; buf[off+1] = (byte)(v>>8);
+            buf[off+2] = (byte)(v>>16); buf[off+3] = (byte)(v>>24);
         }
 
-        // ── 리플렉션 헬퍼 ─────────────────────────────────────────────────────
+        // ── 리플렉션 ──────────────────────────────────────────────────────────────
 
-        private static void SetPrivateField(object obj, string fieldName, object value)
+        private static void SetField(object obj, string name, object value)
         {
-            var field = obj.GetType().GetField(
-                fieldName,
+            var f = obj.GetType().GetField(name,
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (field != null)
-                field.SetValue(obj, value);
-            else
-                Debug.LogWarning($"[UnityGSLoader] Field '{fieldName}' not found in {obj.GetType().Name}");
+            if (f != null) f.SetValue(obj, value);
+            else Debug.LogWarning($"[UnityGSLoader] Field '{name}' not found in {obj.GetType().Name}");
         }
     }
 }
