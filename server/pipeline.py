@@ -154,11 +154,11 @@ def run_pipeline(job_id: str, video_path: Path):
         unitygs_dir.mkdir(exist_ok=True)
         unitygs_path = unitygs_dir / "splat.unitygs"
         _run(job_id, [
-            sys.executable,
-            cfg.BASE / "convert_ply_to_unitygs.py",
+            cfg.MOBILE_GS_PY,
+            cfg.SERVER_DIR / "convert_ply_to_unitygs.py",
             final_ply,
             unitygs_path,
-        ], cwd=cfg.BASE, label="PLY → .unitygs")
+        ], cwd=cfg.SERVER_DIR, label="PLY → .unitygs")
 
         job_store.update_job(
             job_id,
