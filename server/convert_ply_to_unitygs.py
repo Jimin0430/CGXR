@@ -72,20 +72,27 @@ def convert(ply_path: str, out_path: str, include_sh: bool = True) -> None:
     a = np.clip(_sigmoid(v["opacity"].astype(np.float32)), 0.0, 1.0)
     colors = np.column_stack([r, g, b, a])
 
-    # ── SH coefficients (bands 1-3, 15 × float3 per splat) ───────────────
-    # PLY stores: f_rest_0..14 = band1-3 for R, f_rest_15..29 for G, f_rest_30..44 for B
-    # SHTableItemFloat32 layout: sh1=(R,G,B), sh2=(R,G,B), ..., sh15=(R,G,B), pad=(0,0,0)
+    # ── SH coefficients ───────────────────────────────────────────────────
+    # PLY 저장 형식: R 채널 coeffs 전체 → G 채널 → B 채널
+    #   degree1: rest 9개  (채널당 3)
+    #   degree2: rest 24개 (채널당 8)  ← LightGaussian --new_max_sh 2
+    #   degree3: rest 45개 (채널당 15)
+    # .unitygs SH 형식: SHTableItemFloat32 = 15 float3 + 1 padding = 48 floats/splat
+    #   sh[i*3+0]=R, sh[i*3+1]=G, sh[i*3+2]=B for coefficient i (0-indexed)
+    #   degree보다 높은 계수는 0으로 패딩
     rest_names = sorted([k for k in v.data.dtype.names if k.startswith("f_rest_")],
                         key=lambda s: int(s.split("_")[-1]))
-    has_sh = include_sh and len(rest_names) >= 45
+    has_sh = include_sh and len(rest_names) >= 9  # degree1 이상이면 SH 포함
 
     if has_sh:
+        coeffs_per_ch = len(rest_names) // 3      # 채널당 계수 수 (3, 8, 15 중 하나)
+        actual_coeffs = min(coeffs_per_ch, 15)    # SHTableItemFloat32 최대 15개
         sh = np.zeros((n, 48), dtype=np.float32)  # 15 float3 + 1 padding float3
-        for i in range(15):
-            sh[:, i * 3 + 0] = v[rest_names[i]].astype(np.float32)           # R for coeff i
-            sh[:, i * 3 + 1] = v[rest_names[i + 15]].astype(np.float32)      # G for coeff i
-            sh[:, i * 3 + 2] = v[rest_names[i + 30]].astype(np.float32)      # B for coeff i
-        # indices 45-47 stay as 0 (padding)
+        for i in range(actual_coeffs):
+            sh[:, i * 3 + 0] = v[rest_names[i]].astype(np.float32)                    # R
+            sh[:, i * 3 + 1] = v[rest_names[i + coeffs_per_ch]].astype(np.float32)    # G
+            sh[:, i * 3 + 2] = v[rest_names[i + 2 * coeffs_per_ch]].astype(np.float32) # B
+        print(f"[convert_ply_to_unitygs] SH degree={coeffs_per_ch} ({len(rest_names)} rest coeffs)")
 
     # ── Write .unitygs ────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
