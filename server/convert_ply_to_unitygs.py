@@ -33,6 +33,33 @@ def _sigmoid(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-np.clip(x, -88, 88)))
 
 
+def _morton_part1by2(v: np.ndarray) -> np.ndarray:
+    """21비트 정수마다 2개의 0 비트를 삽입 (GaussianUtils.MortonPart1By2 포팅)."""
+    x = v.astype(np.uint64)
+    x &= np.uint64(0x1fffff)
+    x = (x ^ (x << np.uint64(32))) & np.uint64(0x1f00000000ffff)
+    x = (x ^ (x << np.uint64(16))) & np.uint64(0x1f0000ff0000ff)
+    x = (x ^ (x << np.uint64(8)))  & np.uint64(0x100f00f00f00f00f)
+    x = (x ^ (x << np.uint64(4)))  & np.uint64(0x10c30c30c30c30c3)
+    x = (x ^ (x << np.uint64(2)))  & np.uint64(0x1249249249249249)
+    return x
+
+
+def _morton3d_sort_indices(positions: np.ndarray) -> np.ndarray:
+    """에디터 ReorderMorton과 동일하게 3D Morton 코드 기준 정렬 인덱스 반환."""
+    bmin = positions.min(axis=0)
+    bsize = np.maximum(positions.max(axis=0) - bmin, np.float32(1e-8))
+    kScaler = float((1 << 21) - 1)
+    norm = (positions.astype(np.float32) - bmin) / bsize * kScaler
+    ipos = np.clip(norm, 0, kScaler).astype(np.uint32)
+    codes = (
+        (_morton_part1by2(ipos[:, 2]) << np.uint64(2)) |
+        (_morton_part1by2(ipos[:, 1]) << np.uint64(1)) |
+         _morton_part1by2(ipos[:, 0])
+    )
+    return np.argsort(codes, kind='stable')
+
+
 def convert(ply_path: str, out_path: str, include_sh: bool = True) -> None:
     print(f"[convert_ply_to_unitygs] Reading {ply_path}")
     plydata = PlyData.read(ply_path)
@@ -55,20 +82,25 @@ def convert(ply_path: str, out_path: str, include_sh: bool = True) -> None:
     ]))
 
     # ── Rotations (quaternion, xyzw, normalize) ───────────────────────────
+    # 3DGS PLY 저장 규약: rot_0=w, rot_1=x, rot_2=y, rot_3=z (wxyz 순서)
+    # Unity/로더 규약: [x, y, z, w] 순서로 저장해야 Quaternion(x,y,z,w)로 올바르게 읽힘
     rotations = np.column_stack([
-        v["rot_0"].astype(np.float32),
-        v["rot_1"].astype(np.float32),
-        v["rot_2"].astype(np.float32),
-        v["rot_3"].astype(np.float32),
+        v["rot_1"].astype(np.float32),  # x
+        v["rot_2"].astype(np.float32),  # y
+        v["rot_3"].astype(np.float32),  # z
+        v["rot_0"].astype(np.float32),  # w
     ])
     norms = np.linalg.norm(rotations, axis=1, keepdims=True)
     rotations = rotations / np.maximum(norms, 1e-8)
 
     # ── Colors (DC SH → RGBA) ─────────────────────────────────────────────
-    # 3DGS stores DC SH coefficients; activation is sigmoid for alpha, SH_C0*coeff for color
-    r = np.clip(_sigmoid(v["f_dc_0"].astype(np.float32)), 0.0, 1.0)
-    g = np.clip(_sigmoid(v["f_dc_1"].astype(np.float32)), 0.0, 1.0)
-    b = np.clip(_sigmoid(v["f_dc_2"].astype(np.float32)), 0.0, 1.0)
+    # 3DGS DC SH → 컬러: color = f_dc * SH_C0 + 0.5  (선형 변환, sigmoid 아님)
+    # opacity → alpha:  alpha = sigmoid(opacity)
+    # Unity HLSL의 ShadeSH: "col = sh0 * SH_C0 + 0.5 is already precomputed"
+    _SH_C0 = 0.28209479177387814
+    r = np.clip(v["f_dc_0"].astype(np.float32) * _SH_C0 + 0.5, 0.0, 1.0)
+    g = np.clip(v["f_dc_1"].astype(np.float32) * _SH_C0 + 0.5, 0.0, 1.0)
+    b = np.clip(v["f_dc_2"].astype(np.float32) * _SH_C0 + 0.5, 0.0, 1.0)
     a = np.clip(_sigmoid(v["opacity"].astype(np.float32)), 0.0, 1.0)
     colors = np.column_stack([r, g, b, a])
 
@@ -93,6 +125,18 @@ def convert(ply_path: str, out_path: str, include_sh: bool = True) -> None:
             sh[:, i * 3 + 1] = v[rest_names[i + coeffs_per_ch]].astype(np.float32)    # G
             sh[:, i * 3 + 2] = v[rest_names[i + 2 * coeffs_per_ch]].astype(np.float32) # B
         print(f"[convert_ply_to_unitygs] SH degree={coeffs_per_ch} ({len(rest_names)} rest coeffs)")
+
+    # ── Morton 3D 재정렬 (에디터 ReorderMorton과 동일) ──────────────────────
+    # 에디터는 splat을 3D 공간 Morton 순서로 재정렬한 뒤 저장한다.
+    # 정렬 없이 렌더링 시 저장 순서 그대로 합성되므로 공간 순서가 화질에 직접 영향.
+    order = _morton3d_sort_indices(positions)
+    positions  = positions[order]
+    scales     = scales[order]
+    rotations  = rotations[order]
+    colors     = colors[order]
+    if has_sh:
+        sh = sh[order]
+    print(f"[convert_ply_to_unitygs] Morton 3D reordering done")
 
     # ── Write .unitygs ────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
