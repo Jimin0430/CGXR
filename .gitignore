@@ -91,3 +91,6 @@ __pycache__/
 
 # 임시
 third_party/
+
+# Unity 프로젝트 (별도 레포: UnityGaussianSplatting)
+UnityProject/
