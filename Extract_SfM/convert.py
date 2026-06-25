@@ -79,17 +79,17 @@ if not args.skip_matching:
         --image_path " + args.source_path + "/input \
         --ImageReader.single_camera 1 \
         --ImageReader.camera_model " + args.camera + " \
-        --FeatureExtraction.use_gpu " + str(use_gpu)
+        --SiftExtraction.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_extracton_cmd)
     if exit_code != 0:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
     ## Feature matching
-    matcher = "sequential_matcher" if args.sequential or args.video else "exhaustive_matcher"
+    matcher = "sequential_matcher" if args.sequential else "exhaustive_matcher"
     feat_matching_cmd = colmap_command + f" {matcher} \
         --database_path " + args.source_path + "/distorted/database.db \
-        --FeatureMatching.use_gpu " + str(use_gpu)
+        --SiftMatching.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_matching_cmd)
     if exit_code != 0:
         logging.error(f"Feature matching failed with code {exit_code}. Exiting.")
@@ -110,9 +110,20 @@ if not args.skip_matching:
 
 ### Image undistortion
 ## We need to undistort our images into ideal pinhole intrinsics.
+## Pick the largest sparse sub-model (most registered images).
+import os as _os
+_sparse_root = args.source_path + "/distorted/sparse"
+_models = [d for d in _os.listdir(_sparse_root)
+           if _os.path.isdir(_os.path.join(_sparse_root, d))]
+best_model = max(_models,
+                 key=lambda m: _os.path.getsize(
+                     _os.path.join(_sparse_root, m, "images.bin")),
+                 default="0")
+print(f"Undistorting with sparse model: {best_model}")
+
 img_undist_cmd = (colmap_command + " image_undistorter \
     --image_path " + args.source_path + "/input \
-    --input_path " + args.source_path + "/distorted/sparse/0 \
+    --input_path " + args.source_path + "/distorted/sparse/" + best_model + " \
     --output_path " + args.source_path + "\
     --output_type COLMAP")
 exit_code = os.system(img_undist_cmd)
