@@ -40,7 +40,7 @@ def make_plot(raw, comp, same_color=False):
 
     rows = [
         (raw,  color_raw,  f'압축 전  |  3DGS 학습 완료  |  {len(raw):,}개'),
-        (comp, color_comp, f'압축 후  |  LightGaussian  |  {len(comp):,}개  (66% 제거)'),
+        (comp, color_comp, f'압축 후  |  {len(comp):,}개  (66% 제거)'),
     ]
 
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
