@@ -52,9 +52,10 @@ def make_plot(raw, comp, same_color=False):
             ax.scatter(pts[:, xi], pts[:, yi], s=0.4, alpha=0.4, c=color, rasterized=True)
             ax.set_xlim(*xlims[col][0])
             ax.set_ylim(*xlims[col][1])
-            # 첫 번째 열(col 0): 위아래 180도 반전
-            if col == 0:
+            if col == 0:   # 앞에서 본 뷰: XY 반전
                 ax.invert_xaxis()
+                ax.invert_yaxis()
+            elif col == 2:  # 옆에서 본 뷰: Z축 180도 → Y 반전
                 ax.invert_yaxis()
             ax.set_xlabel(xl, color='#aaa', fontsize=18)
             ax.set_ylabel(yl, color='#aaa', fontsize=18)
