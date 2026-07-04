@@ -13,8 +13,8 @@ plt.rcParams['axes.unicode_minus'] = False
 
 RAW_PATH  = r'D:\JM\cgxr\CGXR\server\workdir\ebc97859-33f2-493f-8727-50bb3864a5fd\output\point_cloud\iteration_30000\point_cloud.ply'
 COMP_PATH = r'D:\JM\cgxr\CGXR\server\workdir\ebc97859-33f2-493f-8727-50bb3864a5fd\lg_output\stage3_quantized\point_cloud.ply'
-OUT_COLOR = r'D:\JM\cgxr\CGXR\gaussian_compare.png'
-OUT_WHITE = r'D:\JM\cgxr\CGXR\gaussian_compare_white.png'
+OUT_COLOR = r'D:\JM\cgxr\CGXR\gaussian_visualization\gaussian_compare.png'
+OUT_WHITE = r'D:\JM\cgxr\CGXR\gaussian_visualization\gaussian_compare_white.png'
 
 
 def load_xyz(path):
@@ -57,19 +57,19 @@ def make_plot(raw, comp, same_color=False):
             if col == 0:
                 ax.invert_xaxis()
                 ax.invert_yaxis()
-            ax.set_xlabel(xl, color='#aaa', fontsize=9)
-            ax.set_ylabel(yl, color='#aaa', fontsize=9)
-            ax.tick_params(colors='#666', labelsize=8)
+            ax.set_xlabel(xl, color='#aaa', fontsize=18)
+            ax.set_ylabel(yl, color='#aaa', fontsize=18)
+            ax.tick_params(colors='#666', labelsize=16)
             for spine in ax.spines.values():
                 spine.set_edgecolor('#333')
             if row == 0:
-                ax.set_title(vtitle, fontsize=10, color='white', pad=6)
+                ax.set_title(vtitle, fontsize=20, color='white', pad=6)
 
         fig.text(0.01, 0.75 - row * 0.5, rlabel, va='center', ha='left',
-                 fontsize=10, color=color, rotation=90)
+                 fontsize=20, color=color, rotation=90)
 
     title = 'Gaussian 중심점 분포 비교 (단색)' if same_color else 'Gaussian 중심점 분포 비교'
-    fig.suptitle(title, fontsize=13, color='white', y=1.01)
+    fig.suptitle(title, fontsize=26, color='white', y=1.01)
     plt.tight_layout(rect=[0.04, 0, 1, 1])
     return fig
 
