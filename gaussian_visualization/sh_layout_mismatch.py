@@ -65,25 +65,34 @@ ax2.text(17.5, 7.65, 'sh[i×3+0]=R_i,  sh[i×3+1]=G_i,  sh[i×3+2]=B_i',
 
 ax2.plot([11.5, 11.5], [0.2, 8.4], color='#333', lw=1.5, ls='--')
 
+# R/G/B 컬럼 헤더 — 셀과 겹치지 않게 위로
 for base_x in [1.0, 13.5]:
     for ci, (ch, col) in enumerate([('R', C_R), ('G', C_G), ('B', C_B)]):
-        ax2.text(base_x + ci*3.0 + 1.1, 7.2, ch,
+        ax2.text(base_x + ci*3.0 + 1.1, 7.5, ch,
                  ha='center', fontsize=10, color=col, fontweight='bold')
-    ax2.text(base_x - 0.1, 7.2, 'float3', ha='right', fontsize=8, color='#666')
+    ax2.text(base_x - 0.1, 7.5, 'float3', ha='right', fontsize=8, color='#666')
+
+# 채널 인덱스로 실제 채널 색상 반환
+def ch_color_dark(label_idx):
+    if label_idx < 8:   return '#8b2020'   # R 채널 (어두운 빨강)
+    if label_idx < 16:  return '#207820'   # G 채널 (어두운 초록)
+    return               '#204580'         # B 채널 (어두운 파랑)
 
 # WRONG: 나이브 복사 시 float3[i] = (R_{3i}, R_{3i+1}, R_{3i+2})
+# 각 셀은 실제 채널 색으로 칠하되 빨간 테두리로 오류 표시
 for ri in range(8):
     base = ri * 3
-    y = 6.5 - ri * 0.77
+    y = 6.2 - ri * 0.77
     ax2.text(0.95, y+0.28, f'{ri}', ha='right', fontsize=7.5, color='#666')
     for ci in range(3):
-        rect(ax2, 1.0 + ci*3.0, y, 2.6, 0.65, C_WRONG, ec='#883333',
-             txt=LABELS[base+ci], fs=8.5, bold=True)
+        idx = base + ci
+        rect(ax2, 1.0 + ci*3.0, y, 2.6, 0.65, ch_color_dark(idx), ec='#cc4444',
+             txt=LABELS[idx], fs=8.5, bold=True)
     ax2.text(10.2, y+0.28, 'X', ha='center', fontsize=11, color='#f04040', fontweight='bold')
 
 # CORRECT: float3[i] = (R_i, G_i, B_i)
 for ri in range(8):
-    y = 6.5 - ri * 0.77
+    y = 6.2 - ri * 0.77
     ax2.text(13.4, y+0.28, f'{ri}', ha='right', fontsize=7.5, color='#666')
     for ci, (ch, col) in enumerate([(f'R{ri}', C_R), (f'G{ri}', C_G), (f'B{ri}', C_B)]):
         rect(ax2, 13.5 + ci*3.0, y, 2.6, 0.65, col+'55', ec=col,
