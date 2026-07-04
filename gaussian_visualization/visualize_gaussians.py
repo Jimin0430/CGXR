@@ -27,11 +27,10 @@ def get_lim(pts, axis, pad=0.3):
 
 
 def make_plot(raw, comp, same_color=False):
-    # col 0: XY축 데이터이지만 "옆에서 본 뷰"로 표시, col 2: YZ축 데이터이지만 "위에서 본 뷰"로 표시
     views = [
         ('앞에서 본 뷰', 0, 1, 'X', 'Y'),
-        ('위에서 본 뷰 (XZ)', 0, 2, 'X', 'Z'),
-        ('옆에서 본 뷰 (YZ)', 1, 2, 'Y', 'Z'),
+        ('위에서 본 뷰', 0, 2, 'X', 'Z'),
+        ('옆에서 본 뷰', 2, 1, 'Z', 'Y'),  # 가로=Z(깊이), 세로=Y(높이)
     ]
     xlims = [(get_lim(comp, xi), get_lim(comp, yi)) for _, xi, yi, _, _ in views]
 
@@ -39,7 +38,7 @@ def make_plot(raw, comp, same_color=False):
     color_comp = 'white' if same_color else 'tomato'
 
     rows = [
-        (raw,  color_raw,  f'압축 전  |  3DGS 학습 완료  |  {len(raw):,}개'),
+        (raw,  color_raw,  f'압축 전  |  {len(raw):,}개'),
         (comp, color_comp, f'압축 후  |  {len(comp):,}개  (66% 제거)'),
     ]
 
