@@ -48,7 +48,7 @@ for bar in list(b1) + list(b2):
             f'{bar.get_height():.2f}', ha='center', va='bottom',
             color='white', fontsize=18)
 ax.annotate(f'+{psnr_sam2[1]-psnr_nosam2[1]:.2f} dB',
-            xy=(1, psnr_sam2[1] + 0.18),
+            xy=(1, psnr_sam2[1] + 0.45),
             color='#7fff7f', fontsize=22, ha='center', fontweight='bold')
 
 # ── Panel 2: Gaussian 분포 오버레이 ─────────────────────────────────────
