@@ -65,12 +65,12 @@ ax2.text(17.5, 7.65, 'sh[i×3+0]=R_i,  sh[i×3+1]=G_i,  sh[i×3+2]=B_i',
 
 ax2.plot([11.5, 11.5], [0.2, 8.4], color='#333', lw=1.5, ls='--')
 
-# R/G/B 컬럼 헤더 — 셀과 겹치지 않게 위로
+# R/G/B 컬럼 헤더
 for base_x in [1.0, 13.5]:
     for ci, (ch, col) in enumerate([('R', C_R), ('G', C_G), ('B', C_B)]):
-        ax2.text(base_x + ci*3.0 + 1.1, 7.5, ch,
+        ax2.text(base_x + ci*3.0 + 1.1, 7.1, ch,
                  ha='center', fontsize=10, color=col, fontweight='bold')
-    ax2.text(base_x - 0.1, 7.5, 'float3', ha='right', fontsize=8, color='#666')
+    ax2.text(base_x - 0.1, 7.1, 'float3', ha='right', fontsize=8, color='#666')
 
 # 채널 인덱스로 실제 채널 색상 반환
 def ch_color_dark(label_idx):
@@ -99,16 +99,6 @@ for ri in range(8):
              txt=ch, fs=8.5, bold=True)
     ax2.text(22.7, y+0.28, 'O', ha='center', fontsize=11, color='#40f040', fontweight='bold')
 
-ax2.text(4.5, 0.6,
-         'float3[0] = (R0, R1, R2)  ← 전부 R 채널!\n'
-         'Unity 셰이더는 float3[i]를 (R_i, G_i, B_i)로 해석\n→ 완전히 다른 색상으로 렌더링됨',
-         ha='center', fontsize=9, color='#f09090',
-         bbox=dict(fc='#330000', ec='#883333', boxstyle='round,pad=0.4'))
-ax2.text(17.5, 0.6,
-         'float3[0] = (R0, G0, B0)  ← 올바른 채널 분리\n'
-         'float3[1] = (R1, G1, B1)  ← 계수 인덱스별 묶음\n→ Unity 셰이더가 올바르게 읽음',
-         ha='center', fontsize=9, color='#90f090',
-         bbox=dict(fc='#003300', ec='#338833', boxstyle='round,pad=0.4'))
 
 plt.savefig(OUT, dpi=150, bbox_inches='tight', facecolor=BG)
 plt.close()
