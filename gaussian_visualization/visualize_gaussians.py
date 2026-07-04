@@ -26,31 +26,13 @@ def get_lim(pts, axis, pad=0.3):
     return np.percentile(pts[:, axis], 1) - pad, np.percentile(pts[:, axis], 99) + pad
 
 
-SIDE_ROT_DEG = 15  # 옆에서 본 뷰 Y축 기준 오른쪽 회전각 (도)
-
-def _side_project(pts):
-    """Y축 기준 SIDE_ROT_DEG만큼 오른쪽 회전 후 ZY 평면 투영."""
-    t = np.radians(SIDE_ROT_DEG)
-    c, s = np.cos(t), np.sin(t)
-    z_rot = -pts[:, 0] * s + pts[:, 2] * c  # new Z (horizontal)
-    return z_rot, pts[:, 1]                  # (Z_rot, Y)
-
-
 def make_plot(raw, comp, same_color=False):
     views = [
         ('앞에서 본 뷰', 0, 1, 'X', 'Y'),
         ('위에서 본 뷰', 0, 2, 'X', 'Z'),
-        ('옆에서 본 뷰', None, None, 'Z', 'Y'),  # 회전 투영 사용
+        ('옆에서 본 뷰', 2, 1, 'Z', 'Y'),
     ]
-
-    # 축 범위: 앞/위는 comp 퍼센타일, 옆은 회전 후 comp 기준
-    comp_side_z, comp_side_y = _side_project(comp)
-    xlims = [
-        (get_lim(comp, 0), get_lim(comp, 1)),
-        (get_lim(comp, 0), get_lim(comp, 2)),
-        ((np.percentile(comp_side_z, 1) - 0.3, np.percentile(comp_side_z, 99) + 0.3),
-         (np.percentile(comp_side_y, 1) - 0.3, np.percentile(comp_side_y, 99) + 0.3)),
-    ]
+    xlims = [(get_lim(comp, xi), get_lim(comp, yi)) for _, xi, yi, _, _ in views]
 
     color_raw  = 'white' if same_color else 'steelblue'
     color_comp = 'white' if same_color else 'tomato'
@@ -67,19 +49,13 @@ def make_plot(raw, comp, same_color=False):
         for col, (vtitle, xi, yi, xl, yl) in enumerate(views):
             ax = axes[row][col]
             ax.set_facecolor('black')
-
-            if col == 2:
-                px, py = _side_project(pts)
-            else:
-                px, py = pts[:, xi], pts[:, yi]
-
-            ax.scatter(px, py, s=0.4, alpha=0.4, c=color, rasterized=True)
+            ax.scatter(pts[:, xi], pts[:, yi], s=0.4, alpha=0.4, c=color, rasterized=True)
             ax.set_xlim(*xlims[col][0])
             ax.set_ylim(*xlims[col][1])
-            if col == 0:   # 앞에서 본 뷰: XY 반전
+            if col == 0:
                 ax.invert_xaxis()
                 ax.invert_yaxis()
-            elif col == 2:  # 옆에서 본 뷰: Y 반전
+            elif col == 2:
                 ax.invert_yaxis()
             ax.set_xlabel(xl, color='#aaa', fontsize=18)
             ax.set_ylabel(yl, color='#aaa', fontsize=18)
