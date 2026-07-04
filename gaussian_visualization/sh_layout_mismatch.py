@@ -58,9 +58,9 @@ ax2.text(4.5, 8.1, 'WRONG  —  naive copy  (sh[i] = f_rest[i])',
          ha='center', fontsize=11, color='#f07070', fontweight='bold')
 ax2.text(4.5, 7.65, 'f_rest 인덱스 순서 그대로 복사',
          ha='center', fontsize=9, color='#aaa', style='italic')
-ax2.text(17.5, 8.1, 'CORRECT  —  채널 분리 후 인터리브',
+ax2.text(17.5, 8.1, 'CORRECT  —  채널 분리 후 계수별 교차 배치',
          ha='center', fontsize=11, color='#70f070', fontweight='bold')
-ax2.text(17.5, 7.65, 'sh[i×3+0]=R_i,  sh[i×3+1]=G_i,  sh[i×3+2]=B_i',
+ax2.text(17.5, 7.65, 'sh[i×3+0]=R_i,  sh[i×3+1]=G_i,  sh[i×3+2]=B_i  (계수별 RGB 교차 배치)',
          ha='center', fontsize=9, color='#aaa', style='italic')
 
 ax2.plot([11.5, 11.5], [0.2, 8.4], color='#333', lw=1.5, ls='--')
@@ -72,21 +72,21 @@ for base_x in [1.0, 13.5]:
                  ha='center', fontsize=10, color=col, fontweight='bold')
     ax2.text(base_x - 0.1, 7.1, 'float3', ha='right', fontsize=8, color='#666')
 
-# 채널 인덱스로 실제 채널 색상 반환
+# 채널 인덱스로 실제 채널 배경/테두리 색상 반환
 def ch_color_dark(label_idx):
-    if label_idx < 8:   return '#8b2020'   # R 채널 (어두운 빨강)
-    if label_idx < 16:  return '#207820'   # G 채널 (어두운 초록)
-    return               '#204580'         # B 채널 (어두운 파랑)
+    if label_idx < 8:   return '#8b2020', C_R   # R: 어두운 빨강 배경, C_R 테두리
+    if label_idx < 16:  return '#207820', C_G   # G: 어두운 초록 배경, C_G 테두리
+    return                     '#204580', C_B   # B: 어두운 파랑 배경, C_B 테두리
 
 # WRONG: 나이브 복사 시 float3[i] = (R_{3i}, R_{3i+1}, R_{3i+2})
-# 각 셀은 실제 채널 색으로 칠하되 빨간 테두리로 오류 표시
 for ri in range(8):
     base = ri * 3
     y = 6.2 - ri * 0.77
     ax2.text(0.95, y+0.28, f'{ri}', ha='right', fontsize=7.5, color='#666')
     for ci in range(3):
         idx = base + ci
-        rect(ax2, 1.0 + ci*3.0, y, 2.6, 0.65, ch_color_dark(idx), ec='#cc4444',
+        fc, ec = ch_color_dark(idx)
+        rect(ax2, 1.0 + ci*3.0, y, 2.6, 0.65, fc, ec=ec,
              txt=LABELS[idx], fs=8.5, bold=True)
     ax2.text(10.2, y+0.28, 'X', ha='center', fontsize=11, color='#f04040', fontweight='bold')
 
